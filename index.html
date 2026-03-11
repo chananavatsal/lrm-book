@@ -1,271 +1,559 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Build a Large Robot Model (From Scratch) - Interactive Overview</title>
-<style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;600;700;800;900&display=swap');
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Build a Large Robot Model (From Scratch) - Interactive Overview</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@300;400;600;700;800;900&display=swap');
 
-:root {
-  --bg: #07090f;
-  --s1: #0c1018;
-  --s2: #111827;
-  --s3: #182030;
-  --border: #1e293b;
-  --border2: #263348;
+    :root {
+      --bg: #07090f;
+      --s1: #0c1018;
+      --s2: #111827;
+      --s3: #182030;
+      --border: #1e293b;
+      --border2: #263348;
 
-  /* Thematic Colors */
-  --accent-cyan: #22d3ee;
-  --accent-cyan-bg: rgba(34, 211, 238, 0.1);
-  --shared: #818cf8;   /* indigo */
-  --shared-bg: rgba(129, 140, 248, 0.1);
-  --disc: #4ade80;     /* green */
-  --disc-bg: rgba(74, 222, 128, 0.1);
-  --flow: #f97316;     /* orange */
-  --flow-bg: rgba(249, 115, 22, 0.1);
-  --rl: #facc15;       /* yellow */
-  --rl-bg: rgba(250, 204, 21, 0.1);
-  --reason: #c084fc;   /* purple */
-  --reason-bg: rgba(192, 132, 252, 0.1);
-  --deploy: #f43f5e;   /* rose */
-  --deploy-bg: rgba(244, 63, 94, 0.1);
+      /* Thematic Colors */
+      --accent-cyan: #22d3ee;
+      --accent-cyan-bg: rgba(34, 211, 238, 0.1);
+      --shared: #818cf8;
+      /* indigo */
+      --shared-bg: rgba(129, 140, 248, 0.1);
+      --disc: #4ade80;
+      /* green */
+      --disc-bg: rgba(74, 222, 128, 0.1);
+      --flow: #f97316;
+      /* orange */
+      --flow-bg: rgba(249, 115, 22, 0.1);
+      --rl: #facc15;
+      /* yellow */
+      --rl-bg: rgba(250, 204, 21, 0.1);
+      --reason: #c084fc;
+      /* purple */
+      --reason-bg: rgba(192, 132, 252, 0.1);
+      --deploy: #f43f5e;
+      /* rose */
+      --deploy-bg: rgba(244, 63, 94, 0.1);
 
-  --text: #e2e8f0;
-  --muted: #64748b;
-  --muted2: #94a3b8;
-  --mono: 'JetBrains Mono', monospace;
-  --sans: 'Outfit', sans-serif;
-}
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --muted2: #94a3b8;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Outfit', sans-serif;
+    }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--sans);
-  display: flex;
-  height: 100vh;
-  overflow: hidden;
-}
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-/* ─── SIDEBAR NAVIGATION ─── */
-.sidebar {
-  width: 340px;
-  background: var(--s1);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  z-index: 10;
-}
-.sidebar::-webkit-scrollbar { width: 6px; }
-.sidebar::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
 
-.sidebar-header {
-  padding: 24px 20px;
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  background: rgba(12, 16, 24, 0.95);
-  backdrop-filter: blur(10px);
-  z-index: 2;
-}
-.book-eyebrow {
-  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
-  text-transform: uppercase; color: var(--shared); margin-bottom: 8px;
-}
-.book-title {
-  font-size: 18px; font-weight: 800; line-height: 1.2;
-}
+    /* ─── SIDEBAR NAVIGATION ─── */
+    .sidebar {
+      width: 340px;
+      background: var(--s1);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 10;
+    }
 
-.nav-group {
-  padding: 16px 12px;
-  border-bottom: 1px dashed var(--border);
-}
-.nav-group-title {
-  font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
-  text-transform: uppercase; color: var(--muted); margin: 0 8px 10px;
-}
-.nav-item {
-  display: flex; flex-direction: column;
-  padding: 10px 12px; margin-bottom: 4px;
-  border-radius: 8px; cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.2s;
-}
-.nav-item:hover { background: var(--s2); }
-.nav-item.active {
-  background: var(--s2);
-  border-color: var(--border2);
-}
-/* Active colors by part */
-.nav-item.active[data-part="1"] { border-left: 3px solid var(--accent-cyan); }
-.nav-item.active[data-part="2"] { border-left: 3px solid var(--shared); }
-.nav-item.active[data-part="3"] { border-left: 3px solid var(--rl); }
-.nav-item.active[data-part="4"] { border-left: 3px solid var(--reason); }
-.nav-item.active[data-part="5"] { border-left: 3px solid var(--deploy); }
+    .sidebar::-webkit-scrollbar {
+      width: 6px;
+    }
 
-.nav-ch { font-family: var(--mono); font-size: 10px; color: var(--muted2); margin-bottom: 4px; }
-.nav-title { font-size: 13px; font-weight: 600; }
-.nav-item.active .nav-title { color: #fff; }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 4px;
+    }
 
-/* ─── MAIN CONTENT AREA ─── */
-.main-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 60px 40px;
-  position: relative;
-}
-.page-container {
-  max-width: 800px;
-  margin: 0 auto;
-  animation: fadeUp 0.3s ease both;
-  padding-bottom: 60px;
-}
+    .sidebar-header {
+      padding: 24px 20px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: rgba(12, 16, 24, 0.95);
+      backdrop-filter: blur(10px);
+      z-index: 2;
+    }
 
-/* ─── REUSABLE UI COMPONENTS ─── */
-.sec-label {
-  font-family: var(--mono); font-size: 9px; letter-spacing: 3px;
-  text-transform: uppercase; padding: 4px 12px; border-radius: 20px;
-  display: inline-block; margin-bottom: 16px;
-}
+    .book-eyebrow {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--shared);
+      margin-bottom: 8px;
+    }
 
-h2 { font-size: 32px; font-weight: 900; line-height: 1.2; margin-bottom: 12px; }
-.ch-desc { font-size: 15px; color: var(--muted2); line-height: 1.6; margin-bottom: 24px; }
+    .book-title {
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
 
-/* Outline Component */
-.outline-box {
-  background: rgba(0,0,0,0.2);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 32px;
-}
-.outline-title {
-  font-family: var(--mono); font-size: 10px; letter-spacing: 2px;
-  text-transform: uppercase; color: var(--muted); margin-bottom: 16px;
-  border-bottom: 1px solid var(--border); padding-bottom: 8px;
-}
-.outline-list { display: flex; flex-direction: column; gap: 10px; }
-.outline-item { display: flex; align-items: flex-start; gap: 12px; }
-.outline-num {
-  font-family: var(--mono); font-size: 12px; font-weight: 700;
-  width: 32px; flex-shrink: 0; padding-top: 2px;
-}
-.outline-text { font-size: 14px; color: var(--text); line-height: 1.4; }
+    .nav-group {
+      padding: 16px 12px;
+      border-bottom: 1px dashed var(--border);
+    }
 
-.comp-box {
-  background: var(--s1); border: 1px solid var(--border);
-  border-radius: 10px; padding: 20px; margin-bottom: 16px;
-  position: relative;
-}
-.cb-tag {
-  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
-  text-transform: uppercase; margin-bottom: 6px;
-}
-.cb-name { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-.cb-desc { font-family: var(--mono); font-size: 12px; color: var(--muted2); line-height: 1.6; margin-bottom: 16px; }
+    .nav-group-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 0 8px 10px;
+    }
 
-.io-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.io-line { display: flex; align-items: flex-start; gap: 8px; }
-.io-pill {
-  font-family: var(--mono); font-size: 8px; padding: 3px 6px;
-  border-radius: 4px; flex-shrink: 0; letter-spacing: 0.5px;
-}
-.io-text { font-family: var(--mono); font-size: 10px; color: var(--muted2); line-height: 1.5; }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      padding: 10px 12px;
+      margin-bottom: 4px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
 
-.ip-in { background: rgba(100,116,139,0.2); color: var(--muted2); border: 1px solid var(--border2); }
-.ip-out { background: rgba(129,140,248,0.1); color: var(--shared); border: 1px solid rgba(129,140,248,0.3); }
+    .nav-item:hover {
+      background: var(--s2);
+    }
 
-.mini-arr { text-align: center; padding: 4px 0; font-size: 14px; color: var(--muted); }
+    .nav-item.active {
+      background: var(--s2);
+      border-color: var(--border2);
+    }
 
-.sbs { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
-.ch-card { border-radius: 16px; border: 1px solid var(--border); overflow: hidden; background: var(--s1); position: relative; }
-.ch-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--border2); }
-.ch-hdr { padding: 16px 20px; border-bottom: 1px solid var(--border); }
-.ch-body { padding: 20px; }
+    /* Active colors by part */
+    .nav-item.active[data-part="1"] {
+      border-left: 3px solid var(--accent-cyan);
+    }
 
-/* Spine Logic */
-.spine-flow { display: flex; align-items: stretch; gap: 0; flex-wrap: wrap; }
-.spine-node {
-  background: var(--s2); border: 1px solid var(--border2);
-  border-radius: 10px; padding: 12px; text-align: center; flex: 1; min-width: 120px; position: relative;
-}
-.sarr { display: flex; align-items: center; justify-content: center; width: 30px; }
-.sarr::after { content: '▶'; font-size: 10px; color: var(--muted); }
+    .nav-item.active[data-part="2"] {
+      border-left: 3px solid var(--shared);
+    }
 
-/* Pipeline Box specific styles */
-.pipeline-box { border: 1px solid var(--border2); border-radius: 8px; padding: 12px; text-align: center; background: rgba(255,255,255,0.02); }
-.pipeline-arrow { text-align: center; color: var(--muted2); font-size: 12px; margin: 8px 0; }
+    .nav-item.active[data-part="3"] {
+      border-left: 3px solid var(--rl);
+    }
 
-/* Visual Components (Probability Bars, Field Viz, Grids) */
-.prob-bars {
-  display: flex; align-items: flex-end; gap: 2px;
-  height: 48px; margin: 12px 0 8px; border-bottom: 1px solid var(--border2); padding-bottom: 2px;
-}
-.pb { flex: 1; border-radius: 2px 2px 0 0; min-height: 2px; }
+    .nav-item.active[data-part="4"] {
+      border-left: 3px solid var(--reason);
+    }
 
-.field-viz {
-  height: 80px; background: var(--s2);
-  border-radius: 6px; margin: 12px 0; border: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  overflow: hidden; position: relative;
-}
-.field-svg { width: 100%; height: 100%; }
+    .nav-item.active[data-part="5"] {
+      border-left: 3px solid var(--deploy);
+    }
 
-.tensor-box {
-  background: var(--s2); border: 1px dashed var(--border2);
-  padding: 10px; border-radius: 8px; font-family: var(--mono);
-  font-size: 11px; display: flex; justify-content: space-between;
-  margin-bottom: 8px; align-items: center;
-}
-.tensor-dim { color: var(--accent-cyan); font-weight: 700; background: var(--accent-cyan-bg); padding: 2px 6px; border-radius: 4px; }
+    .nav-ch {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted2);
+      margin-bottom: 4px;
+    }
 
-.token-row {
-  display: flex; gap: 4px; margin-top: 12px; overflow-x: hidden;
-}
-.token {
-  padding: 6px 10px; border-radius: 6px; font-family: var(--mono); font-size: 10px;
-  background: var(--s2); border: 1px solid var(--border2); flex-shrink: 0;
-}
-.token.img { border-color: rgba(34, 211, 238, 0.4); color: var(--accent-cyan); }
-.token.txt { border-color: rgba(129, 140, 248, 0.4); color: var(--shared); }
-.token.act { border-color: rgba(74, 222, 128, 0.4); color: var(--disc); }
+    .nav-title {
+      font-size: 13px;
+      font-weight: 600;
+    }
 
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-</style>
+    .nav-item.active .nav-title {
+      color: #fff;
+    }
+
+    /* ─── MAIN CONTENT AREA ─── */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 60px 40px;
+      position: relative;
+    }
+
+    .page-container {
+      max-width: 800px;
+      margin: 0 auto;
+      animation: fadeUp 0.3s ease both;
+      padding-bottom: 60px;
+    }
+
+    /* ─── REUSABLE UI COMPONENTS ─── */
+    .sec-label {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      display: inline-block;
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 32px;
+      font-weight: 900;
+      line-height: 1.2;
+      margin-bottom: 12px;
+    }
+
+    .ch-desc {
+      font-size: 15px;
+      color: var(--muted2);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    /* Outline Component */
+    .outline-box {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 32px;
+    }
+
+    .outline-title {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+    }
+
+    .outline-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .outline-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .outline-num {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      width: 32px;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .outline-text {
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    .comp-box {
+      background: var(--s1);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .cb-tag {
+      font-family: var(--mono);
+      font-size: 9px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    .cb-name {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .cb-desc {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted2);
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    .io-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .io-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .io-pill {
+      font-family: var(--mono);
+      font-size: 8px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      letter-spacing: 0.5px;
+    }
+
+    .io-text {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted2);
+      line-height: 1.5;
+    }
+
+    .ip-in {
+      background: rgba(100, 116, 139, 0.2);
+      color: var(--muted2);
+      border: 1px solid var(--border2);
+    }
+
+    .ip-out {
+      background: rgba(129, 140, 248, 0.1);
+      color: var(--shared);
+      border: 1px solid rgba(129, 140, 248, 0.3);
+    }
+
+    .mini-arr {
+      text-align: center;
+      padding: 4px 0;
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    .sbs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .ch-card {
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: var(--s1);
+      position: relative;
+    }
+
+    .ch-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--border2);
+    }
+
+    .ch-hdr {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ch-body {
+      padding: 20px;
+    }
+
+    /* Spine Logic */
+    .spine-flow {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+
+    .spine-node {
+      background: var(--s2);
+      border: 1px solid var(--border2);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+      flex: 1;
+      min-width: 120px;
+      position: relative;
+    }
+
+    .sarr {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+    }
+
+    .sarr::after {
+      content: '▶';
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    /* Pipeline Box specific styles */
+    .pipeline-box {
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .pipeline-arrow {
+      text-align: center;
+      color: var(--muted2);
+      font-size: 12px;
+      margin: 8px 0;
+    }
+
+    /* Visual Components (Probability Bars, Field Viz, Grids) */
+    .prob-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 48px;
+      margin: 12px 0 8px;
+      border-bottom: 1px solid var(--border2);
+      padding-bottom: 2px;
+    }
+
+    .pb {
+      flex: 1;
+      border-radius: 2px 2px 0 0;
+      min-height: 2px;
+    }
+
+    .field-viz {
+      height: 80px;
+      background: var(--s2);
+      border-radius: 6px;
+      margin: 12px 0;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .field-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .tensor-box {
+      background: var(--s2);
+      border: 1px dashed var(--border2);
+      padding: 10px;
+      border-radius: 8px;
+      font-family: var(--mono);
+      font-size: 11px;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+
+    .tensor-dim {
+      color: var(--accent-cyan);
+      font-weight: 700;
+      background: var(--accent-cyan-bg);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .token-row {
+      display: flex;
+      gap: 4px;
+      margin-top: 12px;
+      overflow-x: hidden;
+    }
+
+    .token {
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+      background: var(--s2);
+      border: 1px solid var(--border2);
+      flex-shrink: 0;
+    }
+
+    .token.img {
+      border-color: rgba(34, 211, 238, 0.4);
+      color: var(--accent-cyan);
+    }
+
+    .token.txt {
+      border-color: rgba(129, 140, 248, 0.4);
+      color: var(--shared);
+    }
+
+    .token.act {
+      border-color: rgba(74, 222, 128, 0.4);
+      color: var(--disc);
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- SIDEBAR -->
-<div class="sidebar" id="sidebar">
-  <div class="sidebar-header">
-    <div class="book-eyebrow">Interactive Overview</div>
-    <div class="book-title">BUILD A LARGE ROBOT MODEL</div>
-    <div style="font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 4px;">(FROM SCRATCH)</div>
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="book-eyebrow">Interactive Overview</div>
+      <div class="book-title">BUILD A LARGE ROBOT MODEL</div>
+      <div style="font-family: var(--mono); font-size: 9px; color: var(--muted); margin-top: 4px;">(FROM SCRATCH)</div>
+    </div>
+    <div id="nav-container"></div>
   </div>
-  <div id="nav-container"></div>
-</div>
 
-<!-- MAIN CONTENT -->
-<div class="main-content" id="main-content">
-  <!-- Content injected via JS -->
-</div>
+  <!-- MAIN CONTENT -->
+  <div class="main-content" id="main-content">
+    <!-- Content injected via JS -->
+  </div>
 
-<script>
-const bookData = [
-  {
-    part: 1, partTitle: "Foundations",
-    chapters: [
+  <script>
+    const bookData = [
       {
-        id: "ch1", num: "Chapter 1", title: "The Generative Robot", color: "var(--accent-cyan)",
-        content: `
+        part: 1, partTitle: "Foundations",
+        chapters: [
+          {
+            id: "ch1", num: "Chapter 1", title: "The Generative Robot", color: "var(--accent-cyan)",
+            content: `
           <div class="sec-label" style="background:var(--accent-cyan-bg);color:var(--accent-cyan);border:1px solid rgba(34,211,238,0.3)">Intro & Paradigm Shift</div>
           <h2>The Generative Robot</h2>
-          <p class="ch-desc">Moving from hard-coded heuristics and classical control loops to an open-world, sequence-modeling approach.</p>
+          <p class="ch-desc">The traditional robotics stack of perception, planning, and control modules has significant limitations in open-world settings. This chapter traces the paradigm shift from classical robotics to modern large VLAs, and explains why robot actions can be treated as a generative sequence like language tokens, unlocking generalization capabilities, thus paving the way to the future of the robotics industry.</p>
           
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
@@ -275,49 +563,138 @@ const bookData = [
               <div class="outline-item"><div class="outline-num" style="color:var(--accent-cyan)">1.3</div><div class="outline-text">The Physical Reality Gap: Why standard ML fails on hardware</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--accent-cyan)">1.4</div><div class="outline-text">Motion as a Modality: Treating action like language tokens</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--accent-cyan)">1.5</div><div class="outline-text">What you will build: The end-to-end VLA pipeline</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--accent-cyan)">1.6</div><div class="outline-text">The industrial advantage: Where are we headed</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--accent-cyan)">1.6</div><div class="outline-text">The Industrial Advantage: Where are we headed</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--accent-cyan)">1.7</div><div class="outline-text">Summary</div></div>
             </div>
           </div>
+
+          <!-- Shared Defs for SVGs -->
+          <svg width="0" height="0" style="position:absolute; visibility:hidden;">
+            <defs>
+              <marker id="arr-gray" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--muted)" />
+              </marker>
+              <marker id="arr-cyan" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent-cyan)" />
+              </marker>
+            </defs>
+          </svg>
 
           <div class="sbs">
             <div class="ch-card">
               <div class="ch-hdr" style="border-top: 3px solid var(--muted)">
                 <div style="font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:4px">The Old Stack</div>
-                <div style="font-size:16px;font-weight:700">Heuristics & Hand-coded Rules</div>
+                <div style="font-size:16px;font-weight:700">Heuristics & Modules</div>
               </div>
               <div class="ch-body">
-                <div class="pipeline-box">Perception Module (Object Det)</div>
-                <div class="pipeline-arrow">↓ coordinates</div>
-                <div class="pipeline-box">Motion Planner (RRT*)</div>
-                <div class="pipeline-arrow">↓ trajectories</div>
-                <div class="pipeline-box">PID Controller</div>
-                <div style="margin-top:16px; font-family:var(--mono); font-size:10px; color:var(--deploy); text-align:center;">⚠ Fails in unstructured, open-world environments.</div>
+                
+                <!-- SVG Visualization for Old Stack -->
+                <div style="background:var(--s2); border: 1px solid var(--border2); border-radius: 8px; padding: 20px 10px; margin-bottom: 16px;">
+                  <svg viewBox="0 0 200 80" style="width:100%; height:80px; overflow:visible;">
+                     <!-- Perception Block -->
+                     <rect x="10" y="20" width="35" height="40" fill="var(--s1)" stroke="var(--muted)" stroke-width="1.5" rx="4"/>
+                     <text x="27" y="40" font-family="sans-serif" font-size="14" fill="var(--muted)" text-anchor="middle">📷</text>
+                     <rect x="18" y="45" width="10" height="10" fill="none" stroke="#f43f5e" stroke-width="1" stroke-dasharray="2,1"/> 
+                     
+                     <!-- Arrow -->
+                     <line x1="48" y1="40" x2="65" y2="40" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arr-gray)"/>
+                     
+                     <!-- State / Map Block -->
+                     <rect x="70" y="20" width="45" height="40" fill="var(--s1)" stroke="var(--muted)" stroke-width="1.5" rx="4"/>
+                     <!-- Grid lines -->
+                     <path d="M70 30 L115 30 M70 40 L115 40 M70 50 L115 50 M81.25 20 L81.25 60 M92.5 20 L92.5 60 M103.75 20 L103.75 60" stroke="var(--border2)" stroke-width="0.5"/>
+                     <circle cx="92.5" cy="35" r="2.5" fill="#f43f5e"/>
+                     
+                     <!-- Arrow -->
+                     <line x1="120" y1="40" x2="135" y2="40" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arr-gray)"/>
+                     
+                     <!-- Planner / Controller Block -->
+                     <rect x="140" y="20" width="50" height="40" fill="var(--s1)" stroke="var(--muted)" stroke-width="1.5" rx="4"/>
+                     <!-- Jagged path for A* / RRT -->
+                     <path d="M 148 50 L 158 30 L 178 30 L 178 45" fill="none" stroke="var(--muted2)" stroke-width="1.5" stroke-linejoin="bevel"/>
+                     <circle cx="148" cy="50" r="2.5" fill="var(--text)"/>
+                     <rect x="175" y="45" width="6" height="6" fill="#f43f5e" rx="1"/>
+                  </svg>
+                  <div style="display:flex; justify-content:space-between; font-family:var(--mono); font-size:8px; color:var(--muted2); margin-top:16px; padding:0 5px;">
+                     <span style="text-align:center">Perception<br>(Objects)</span>
+                     <span style="text-align:center; padding-left:10px;">State Space<br>(Coords)</span>
+                     <span style="text-align:center">Planning<br>(PID/RRT*)</span>
+                  </div>
+                </div>
+
+                <div style="font-family:var(--mono); font-size:10px; color:var(--deploy); text-align:center;">⚠ Fails in unstructured, open-world environments.</div>
               </div>
             </div>
+            
             <div class="ch-card">
               <div class="ch-hdr" style="border-top: 3px solid var(--accent-cyan)">
                 <div style="font-family:var(--mono);font-size:10px;color:var(--accent-cyan);margin-bottom:4px">The New Stack</div>
-                <div style="font-size:16px;font-weight:700">Vision-Language-Action (VLA)</div>
+                <div style="font-size:16px;font-weight:700">Vision-Language-Action</div>
               </div>
               <div class="ch-body">
-                <div class="pipeline-box" style="border-color:var(--accent-cyan)">Pixels + Language Instruction</div>
-                <div class="pipeline-arrow" style="color:var(--accent-cyan)">↓ sequence of tokens</div>
-                <div class="pipeline-box" style="background:var(--accent-cyan-bg);border-color:var(--accent-cyan);font-weight:bold;">Large Transformer Model</div>
-                <div class="pipeline-arrow" style="color:var(--accent-cyan)">↓ continuous/discrete action</div>
-                <div class="pipeline-box" style="border-color:var(--accent-cyan)">Low-level Motor Commands</div>
-                <div style="margin-top:16px; font-family:var(--mono); font-size:10px; color:var(--disc); text-align:center;">✓ Generalizes across tasks using massive offline datasets.</div>
+                
+                <!-- SVG Visualization for New Stack -->
+                <div style="background:var(--s2); border: 1px solid rgba(34,211,238,0.3); border-radius: 8px; padding: 20px 10px; margin-bottom: 16px; position:relative;">
+                  <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:80px; height:80px; background:var(--accent-cyan); filter:blur(40px); opacity:0.15;"></div>
+                  <svg viewBox="0 0 200 80" style="width:100%; height:80px; overflow:visible; position:relative; z-index:1;">
+                     <!-- Inputs -->
+                     <rect x="10" y="15" width="30" height="20" fill="rgba(34,211,238,0.05)" stroke="var(--accent-cyan)" stroke-width="1" rx="4"/>
+                     <text x="25" y="29" font-family="sans-serif" font-size="12" fill="var(--accent-cyan)" text-anchor="middle">📷</text>
+                     
+                     <rect x="10" y="45" width="40" height="16" fill="rgba(34,211,238,0.05)" stroke="var(--accent-cyan)" stroke-width="1" rx="4"/>
+                     <text x="30" y="55" font-family="var(--mono)" font-size="6" fill="var(--accent-cyan)" text-anchor="middle">"Pick cup"</text>
+                     
+                     <!-- Converging Arrows -->
+                     <path d="M 45 25 C 60 25, 60 40, 75 40" fill="none" stroke="var(--accent-cyan)" stroke-width="1.5" opacity="0.6"/>
+                     <path d="M 55 53 C 65 53, 65 40, 75 40" fill="none" stroke="var(--accent-cyan)" stroke-width="1.5" opacity="0.6"/>
+
+                     <!-- Transformer Brain -->
+                     <rect x="80" y="20" width="40" height="40" fill="var(--s1)" stroke="var(--accent-cyan)" stroke-width="1.5" rx="6"/>
+                     <!-- Neural nodes visualization inside transformer -->
+                     <path d="M88 30 L100 25 L112 30 M88 40 L100 35 L112 40 M88 50 L100 45 L112 50 M100 25 L100 45 L112 40 M88 40 L100 25" stroke="var(--accent-cyan)" stroke-width="0.5" opacity="0.5"/>
+                     <circle cx="88" cy="30" r="1.5" fill="var(--accent-cyan)"/>
+                     <circle cx="88" cy="40" r="1.5" fill="var(--accent-cyan)"/>
+                     <circle cx="88" cy="50" r="1.5" fill="var(--accent-cyan)"/>
+                     <circle cx="100" cy="25" r="1.5" fill="var(--accent-cyan)"/>
+                     <circle cx="100" cy="35" r="1.5" fill="var(--accent-cyan)"/>
+                     <circle cx="100" cy="45" r="1.5" fill="var(--accent-cyan)"/>
+                     <circle cx="112" cy="30" r="1.5" fill="var(--accent-cyan)"/>
+                     <circle cx="112" cy="40" r="1.5" fill="var(--accent-cyan)"/>
+                     <circle cx="112" cy="50" r="1.5" fill="var(--accent-cyan)"/>
+
+                     <!-- Arrow Out -->
+                     <line x1="125" y1="40" x2="140" y2="40" stroke="var(--accent-cyan)" stroke-width="1.5" marker-end="url(#arr-cyan)"/>
+
+                     <!-- Smooth generative path output -->
+                     <rect x="145" y="20" width="50" height="40" fill="rgba(74,222,128,0.05)" stroke="var(--disc)" stroke-width="1" rx="4"/>
+                     <path d="M 153 52 C 155 25, 185 20, 183 45" fill="none" stroke="var(--disc)" stroke-width="2" stroke-linecap="round"/>
+                     
+                     <!-- Multi-modal distribution traces -->
+                     <path d="M 153 52 C 145 30, 180 15, 183 45" fill="none" stroke="var(--disc)" stroke-width="1" opacity="0.3"/>
+                     <path d="M 153 52 C 165 20, 195 25, 183 45" fill="none" stroke="var(--disc)" stroke-width="1" opacity="0.3"/>
+                     
+                     <circle cx="153" cy="52" r="2" fill="var(--text)"/>
+                     <rect x="180" y="45" width="6" height="6" fill="var(--disc)" rx="1"/>
+                  </svg>
+                  <div style="display:flex; justify-content:space-between; font-family:var(--mono); font-size:8px; color:var(--accent-cyan); margin-top:16px; padding:0 5px;">
+                     <span style="text-align:center">Pixels +<br>Language</span>
+                     <span style="text-align:center; padding-left:15px;">Large<br>Transformer</span>
+                     <span style="text-align:center; color:var(--disc)">Smooth<br>Actions</span>
+                  </div>
+                </div>
+
+                <div style="font-family:var(--mono); font-size:10px; color:var(--disc); text-align:center;">✓ Generalizes directly from raw data via sequence modeling.</div>
               </div>
             </div>
           </div>
         `
-      },
-      {
-        id: "ch2", num: "Chapter 2", title: "Simulation & Control", color: "var(--accent-cyan)",
-        content: `
+          },
+          {
+            id: "ch2", num: "Chapter 2", title: "Simulation & Control", color: "var(--accent-cyan)",
+            content: `
           <div class="sec-label" style="background:var(--accent-cyan-bg);color:var(--accent-cyan);border:1px solid rgba(34,211,238,0.3)">Data & Environments</div>
           <h2>Simulation and Control</h2>
-          <p class="ch-desc">Before training brains, we need a world. Setting up the Gymnasium interface and parsing the HuggingFace LeRobot dataset standard.</p>
+          <p class="ch-desc">The reader sets up the complete simulation stack: Gymnasium, LeRobot, and the PushT environment, and runs a scripted agent. We introduce the LeRobot dataset standard, build a data pipeline with loading, synchronization, and normalization, and visualize episodes and action spaces. The reader walks away with a working simulation loop and clean training data.</p>
 
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
@@ -334,7 +711,7 @@ const bookData = [
           <div class="comp-box" style="border-color:var(--accent-cyan)">
             <div class="cb-tag" style="color:var(--accent-cyan)">The Data Pipeline</div>
             <div class="cb-name">LeRobot Dataset Tensor Structure</div>
-            <div class="cb-desc">Standardizing multi-camera feeds, timestamps, and proprioception into unified PyTorch tensors for model training.</div>
+            <div class="cb-desc">Standardizing multi-camera feeds, timestamps, and proprioception into unified tensors for model training.</div>
             
             <!-- Visual representation of the data batch -->
             <div style="margin-top: 16px;">
@@ -361,26 +738,26 @@ const bookData = [
             </div>
           </div>
         `
-      }
-    ]
-  },
-  {
-    part: 2, partTitle: "Architecture & Imitation",
-    chapters: [
+          }
+        ]
+      },
       {
-        id: "ch3", num: "Chapter 3", title: "Building the VLA Backbone", color: "var(--shared)",
-        content: `
+        part: 2, partTitle: "Architecture & Imitation",
+        chapters: [
+          {
+            id: "ch3", num: "Chapter 3", title: "Building the VLA Backbone", color: "var(--shared)",
+            content: `
           <div class="sec-label" style="background:var(--shared-bg);color:var(--shared);border:1px solid rgba(129,140,248,0.3)">The Core Architecture</div>
           <h2>Building the VLA Backbone</h2>
-          <p class="ch-desc">Wiring a Vision Transformer (SigLIP/DINOv2) into a pre-trained small LLM (SmolLM/Qwen) to create a spatially-aware reasoning engine.</p>
+          <p class="ch-desc">The reader integrates a pre-trained vision encoder and a small language model using a multimodal fusion transformer. After visualizing spatial features through attention maps, the reader aligns the two modalities using Visual Question Answering tasks before introducing action tokens. By the end of the chapter, the reader has built a complete VLA backbone capable of fusing an image and text instruction into a unified representation, ready for action decoding.</p>
           
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
             <div class="outline-list">
               <div class="outline-item"><div class="outline-num" style="color:var(--shared)">3.1</div><div class="outline-text">The VLA Paradigm: Vision + Language = Action</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--shared)">3.2</div><div class="outline-text">The Eyes: Integrating pre-trained encoders (SigLIP / DINOv2) and visualizing visual features</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--shared)">3.3</div><div class="outline-text">The Brain: Integrating the Language Model (SmolLM/Qwen)</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--shared)">3.4</div><div class="outline-text">Multimodal Fusion: Playing with Visual Question Answering and introducing Action Tokens</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--shared)">3.3</div><div class="outline-text">The Brain: Integrating the language model (SmolLM/Qwen)</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--shared)">3.4</div><div class="outline-text">Multimodal Fusion: Playing with Visual Question Answering and introducing action tokens</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--shared)">3.5</div><div class="outline-text">Summary</div></div>
             </div>
           </div>
@@ -423,21 +800,21 @@ const bookData = [
             </div>
           </div>
         `
-      },
-      {
-        id: "ch4", num: "Chapter 4", title: "Discrete Behavior Cloning", color: "var(--disc)",
-        content: `
+          },
+          {
+            id: "ch4", num: "Chapter 4", title: "Discrete Behavior Cloning", color: "var(--disc)",
+            content: `
           <div class="sec-label" style="background:var(--disc-bg);color:var(--disc);border:1px solid rgba(74,222,128,0.3)">Action Head Variant 1</div>
           <h2>Discrete Behavior Cloning</h2>
-          <p class="ch-desc">Treating robot motion exactly like language generation by binning continuous joint angles into discrete vocabulary tokens.</p>
+          <p class="ch-desc">The reader attaches their first action head: discretizes continuous actions into bins, treats them as tokens, and trains a categorical classifier on demonstrations. The reader then implements a custom action tokenizer, trains end-to-end, and visualizes the categorical distribution converging. This delivers the reader's first working robot policy, and exposes its failure mode on multimodal action distributions.</p>
 
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
             <div class="outline-list">
-              <div class="outline-item"><div class="outline-num" style="color:var(--disc)">4.1</div><div class="outline-text">Tokenization and Binning: As applied to Action outputs</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--disc)">4.1</div><div class="outline-text">Tokenization and Binning: As applied to action outputs</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--disc)">4.2</div><div class="outline-text">The Categorical Distribution: Finding the most probable set of actions</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--disc)">4.3</div><div class="outline-text">Implementing the tokenizer: Engineering the translator between tokens and actions</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--disc)">4.4</div><div class="outline-text">Attaching the Action head</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--disc)">4.3</div><div class="outline-text">Implementing the Tokenizer: Engineering the translator between tokens and actions</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--disc)">4.4</div><div class="outline-text">Attaching the Action Head</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--disc)">4.5</div><div class="outline-text">In Action: Watching the categorical distribution converge</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--disc)">4.6</div><div class="outline-text">Summary</div></div>
             </div>
@@ -482,22 +859,22 @@ const bookData = [
             </div>
           </div>
         `
-      },
-      {
-        id: "ch5", num: "Chapter 5", title: "Continuous Flow Matching", color: "var(--flow)",
-        content: `
+          },
+          {
+            id: "ch5", num: "Chapter 5", title: "Continuous Flow Matching", color: "var(--flow)",
+            content: `
           <div class="sec-label" style="background:var(--flow-bg);color:var(--flow);border:1px solid rgba(249,115,22,0.3)">Action Head Variant 2</div>
           <h2>Continuous Flow Matching</h2>
-          <p class="ch-desc">Replacing the discrete tokenizer with an ODE solver. Learning a vector field that smoothly interpolates from random noise to a clean expert action.</p>
+          <p class="ch-desc">The reader tackles the limits of discrete behavior cloning, explaining why quantizing actions leads to jerky movements and failure on complex tasks. To solve this, the reader will replace the discrete tokenizer with a continuous Flow Matching head, training a neural network to predict velocity vector fields that smoothly guide random noise into exact, expert action values. By implementing a fast ODE solver for inference, the reader will deploy a high-precision, continuous control policy capable of the smooth and dexterous manipulation required for advanced robotics.</p>
 
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
             <div class="outline-list">
-              <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.1</div><div class="outline-text">The multimodal regression problem: Discrete BC fails when multiple possible trajectories exist.</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.1</div><div class="outline-text">The limits of Discrete BC: Overcoming quantization error and the multimodal regression problem for smooth, continuous control</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.2</div><div class="outline-text">Diffusion and Flow Matching</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.3</div><div class="outline-text">Learning vector fields: Training and visualizing vector fields of Gaussian Distributions</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.4</div><div class="outline-text">Implementing the Flow Head: three-input architecture, timestep embedding</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.5</div><div class="outline-text">Training loop: Sampling, Interpolating, Supervising</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.3</div><div class="outline-text">Learning Vector Fields: Training and visualizing vector fields of Gaussian distributions</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.4</div><div class="outline-text">Implementing the Flow Head: three-input architecture, sinusoidal timestep embedding, conditioning mechanism to inject the instructions from the LLM</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.5</div><div class="outline-text">Training Loop: Sampling, Interpolating, Supervising</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.6</div><div class="outline-text">In Action: Verifying the learned vector field on a 2D toy task</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--flow)">5.7</div><div class="outline-text">Summary</div></div>
             </div>
@@ -510,7 +887,7 @@ const bookData = [
             
             <!-- Flow field visualization SVG -->
             <div class="field-viz">
-              <svg class="field-svg" viewBox="0 0 300 80" xmlns="http://www.w3.org/2000/svg">
+              <svg class="field-svg" viewBox="0 0 300 56" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                   <marker id="ah-f" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto">
                     <path d="M0,0 L4,2 L0,4 Z" fill="rgba(249,115,22,0.7)"/>
@@ -520,25 +897,28 @@ const bookData = [
                   </marker>
                 </defs>
                 <!-- Background target -->
-                <circle cx="250" cy="40" r="24" fill="none" stroke="rgba(249,115,22,0.15)" stroke-width="1" stroke-dasharray="3,3"/>
-                <circle cx="250" cy="40" r="6" fill="rgba(249,115,22,0.3)"/>
+                <circle cx="220" cy="28" r="18" fill="none" stroke="rgba(249,115,22,0.15)" stroke-width="1" stroke-dasharray="3,3"/>
+                <circle cx="220" cy="28" r="5" fill="rgba(249,115,22,0.3)"/>
                 
                 <!-- Arrows pointing toward target (clean action) from various noise positions -->
-                <line x1="40" y1="15" x2="70" y2="20" stroke="rgba(249,115,22,0.5)" stroke-width="2" marker-end="url(#ah-f)"/>
-                <line x1="40" y1="40" x2="75" y2="40" stroke="rgba(249,115,22,0.5)" stroke-width="2" marker-end="url(#ah-f)"/>
-                <line x1="40" y1="65" x2="70" y2="60" stroke="rgba(249,115,22,0.5)" stroke-width="2" marker-end="url(#ah-f)"/>
+                <line x1="30" y1="10" x2="58" y2="14" stroke="rgba(249,115,22,0.5)" stroke-width="1.5" marker-end="url(#ah-f)"/>
+                <line x1="30" y1="28" x2="62" y2="28" stroke="rgba(249,115,22,0.5)" stroke-width="1.5" marker-end="url(#ah-f)"/>
+                <line x1="30" y1="46" x2="58" y2="42" stroke="rgba(249,115,22,0.5)" stroke-width="1.5" marker-end="url(#ah-f)"/>
                 
-                <line x1="100" y1="18"  x2="130" y2="24" stroke="rgba(249,115,22,0.6)" stroke-width="2" marker-end="url(#ah-f)"/>
-                <line x1="100" y1="40" x2="135" y2="40" stroke="rgba(249,115,22,0.6)" stroke-width="2" marker-end="url(#ah-f)"/>
-                <line x1="100" y1="62" x2="130" y2="56" stroke="rgba(249,115,22,0.6)" stroke-width="2" marker-end="url(#ah-f)"/>
+                <line x1="80" y1="8"  x2="104" y2="13" stroke="rgba(249,115,22,0.6)" stroke-width="1.5" marker-end="url(#ah-f)"/>
+                <line x1="80" y1="28" x2="108" y2="28" stroke="rgba(249,115,22,0.6)" stroke-width="1.5" marker-end="url(#ah-f)"/>
+                <line x1="80" y1="48" x2="104" y2="43" stroke="rgba(249,115,22,0.6)" stroke-width="1.5" marker-end="url(#ah-f)"/>
                 
-                <line x1="160" y1="24" x2="190" y2="30" stroke="rgba(249,115,22,0.8)" stroke-width="2" marker-end="url(#ah-p)"/>
-                <line x1="160" y1="40" x2="195" y2="40" stroke="rgba(249,115,22,0.9)" stroke-width="2" marker-end="url(#ah-p)"/>
-                <line x1="160" y1="56" x2="190" y2="50" stroke="rgba(249,115,22,0.8)" stroke-width="2" marker-end="url(#ah-p)"/>
+                <line x1="130" y1="10" x2="152" y2="15" stroke="rgba(249,115,22,0.7)" stroke-width="1.5" marker-end="url(#ah-f)"/>
+                <line x1="130" y1="28" x2="157" y2="28" stroke="rgba(249,115,22,0.8)" stroke-width="1.5" marker-end="url(#ah-p)"/>
+                <line x1="130" y1="46" x2="152" y2="41" stroke="rgba(249,115,22,0.7)" stroke-width="1.5" marker-end="url(#ah-f)"/>
+                
+                <line x1="175" y1="14" x2="196" y2="20" stroke="rgba(249,115,22,0.85)" stroke-width="1.5" marker-end="url(#ah-p)"/>
+                <line x1="175" y1="42" x2="196" y2="36" stroke="rgba(249,115,22,0.85)" stroke-width="1.5" marker-end="url(#ah-p)"/>
                 
                 <!-- Labels -->
-                <text x="10" y="44" font-family="monospace" font-size="10" fill="rgba(149,163,184,0.7)">Noise</text>
-                <text x="230" y="44" font-family="monospace" font-size="10" fill="rgba(249,115,22,0.9)">a* (Action)</text>
+                <text x="8" y="30" font-family="monospace" font-size="8" fill="rgba(149,163,184,0.7)">noise</text>
+                <text x="207" y="32" font-family="monospace" font-size="8" fill="rgba(249,115,22,0.9)">a*</text>
               </svg>
             </div>
             <div style="font-family:var(--mono);font-size:10px;color:var(--muted);text-align:center;margin-bottom:16px;">Learned vector field: Each arrow is v(a_t, t, h) pointing toward clean action a*</div>
@@ -555,30 +935,29 @@ const bookData = [
             </div>
           </div>
         `
-      }
-    ]
-  },
-  {
-    part: 3, partTitle: "Scaling & Generalization",
-    chapters: [
+          }
+        ]
+      },
       {
-        id: "ch6", num: "Chapter 6", title: "The Staged Curriculum", color: "var(--rl)",
-        content: `
+        part: 3, partTitle: "Scaling & Generalization",
+        chapters: [
+          {
+            id: "ch6", num: "Chapter 6", title: "The Staged Curriculum", color: "var(--rl)",
+            content: `
           <div class="sec-label" style="background:var(--rl-bg);color:var(--rl);border:1px solid rgba(250,204,21,0.3)">Training Strategy</div>
           <h2>The Staged Curriculum Hypothesis</h2>
-          <p class="ch-desc">You cannot train a VLA from scratch in one go. We freeze, align, and thaw components in a strict, compute-efficient sequence.</p>
+          <p class="ch-desc">This chapter demonstrates how to successfully train a VLA without requiring industrial-scale compute clusters. The reader will implement a strict three-stage curriculum, learning to strategically freeze and thaw network components—progressing from text-only fine-tuning, to visual grounding, and finally to full embodied control using parameter-efficient finetuning with LoRA. By the end, the reader will execute a complete end-to-end training loop on the LeRobot dataset, yielding a generalized, instruction-following robotic policy ready for empirical evaluation.</p>
 
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
             <div class="outline-list">
               <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.1</div><div class="outline-text">Transfer learning across modalities</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.2</div><div class="outline-text">Low-Rank Adaptation (LoRA) for efficient fine-tuning</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.3</div><div class="outline-text">Stage 1: LLM Fine-tuning</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.4</div><div class="outline-text">Stage 2: VLM Fine-tuning</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.5</div><div class="outline-text">Stage 3: End-to-End VLA Training</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.3</div><div class="outline-text">Stage 1: LLM fine-tuning</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.4</div><div class="outline-text">Stage 2: VLM fine-tuning</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.5</div><div class="outline-text">Stage 3: End-to-end VLA training</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.6</div><div class="outline-text">Evaluating your VLA: Discrete vs. Continuous on PushT</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.7</div><div class="outline-text">Training the full VLA</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.8</div><div class="outline-text">Summary</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">6.7</div><div class="outline-text">Summary</div></div>
             </div>
           </div>
 
@@ -631,20 +1010,20 @@ const bookData = [
             </div>
           </div>
         `
-      },
-      {
-        id: "ch7", num: "Chapter 7", title: "Reinforcement Learning", color: "var(--rl)",
-        content: `
+          },
+          {
+            id: "ch7", num: "Chapter 7", title: "Reinforcement Learning", color: "var(--rl)",
+            content: `
           <div class="sec-label" style="background:var(--rl-bg);color:var(--rl);border:1px solid rgba(250,204,21,0.3)">Beyond Imitation</div>
           <h2>Reinforcement Learning</h2>
-          <p class="ch-desc">Imitation learning plateaus. RL allows the robot to discover novel, more efficient trajectories through trial, error, and reward signals.</p>
+          <p class="ch-desc">Imitation learning mimics demonstrations but does not generalize well to novel scenarios. The reader designs reward functions for manipulation tasks, then implements REINFORCE, PPO, and GRPO from scratch. Using the imitation-learned policy from Chapter 6 as initialization, the reader fine-tunes with environment rewards and achieves higher success rates on task variations never seen in demonstrations.</p>
 
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
             <div class="outline-list">
-              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">7.1</div><div class="outline-text">RL fundamentals recap</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">7.2</div><div class="outline-text">Designing reward functions</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">7.3</div><div class="outline-text">Policy gradients: REINFORCE, PPO, GRPO</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">7.1</div><div class="outline-text">RL Fundamentals Recap</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">7.2</div><div class="outline-text">Designing Reward Functions</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--rl)">7.3</div><div class="outline-text">Policy Gradients: REINFORCE, PPO, GRPO</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--rl)">7.4</div><div class="outline-text">Implementing the Policy Improvement Training Loop</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--rl)">7.5</div><div class="outline-text">Summary</div></div>
             </div>
@@ -689,26 +1068,26 @@ const bookData = [
             </div>
           </div>
         `
-      }
-    ]
-  },
-  {
-    part: 4, partTitle: "Advanced Capabilities",
-    chapters: [
+          }
+        ]
+      },
       {
-        id: "ch8", num: "Chapter 8", title: "Reasoning for Robotics", color: "var(--reason)",
-        content: `
+        part: 4, partTitle: "Advanced Capabilities",
+        chapters: [
+          {
+            id: "ch8", num: "Chapter 8", title: "Reasoning for Robotics", color: "var(--reason)",
+            content: `
           <div class="sec-label" style="background:var(--reason-bg);color:var(--reason);border:1px solid rgba(192,132,252,0.3)">Frontier Research</div>
           <h2>Reasoning for Robotics</h2>
-          <p class="ch-desc">Integrating Chain-of-Thought (DeepSeek-R1) and spatial reasoning (Molmo Act) to allow robots to "think" before they move.</p>
+          <p class="ch-desc">Current VLAs are reactive—one forward pass, no deliberation. This chapter explores the frontier where robots "think before they act": dual-system architectures (System 1 fast/System 2 slow, as in Helix and GR00T N1), chain-of-thought reasoning adapted for physical tasks, spatial reasoning via Molmo-Act, and test-time compute scaling. This chapter is more conceptual than hands-on, equipping the reader to follow the rapidly evolving research landscape and be familiar with the latest architectures.</p>
 
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
             <div class="outline-list">
-              <div class="outline-item"><div class="outline-num" style="color:var(--reason)">8.1</div><div class="outline-text">System 1 vs System 2: Analogous to how humans act and react</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--reason)">8.1</div><div class="outline-text">System 1 vs. System 2: Analogous to how humans act and react</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--reason)">8.2</div><div class="outline-text">Semantic Reasoning: From Chain-of-Thought to DeepSeek-R1</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--reason)">8.3</div><div class="outline-text">Spatial Reasoning: The Molmo Act Approach</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--reason)">8.4</div><div class="outline-text">Test-Time Compute: Trading Latency for Accuracy</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--reason)">8.3</div><div class="outline-text">Spatial Reasoning: The Molmo-Act approach</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--reason)">8.4</div><div class="outline-text">Test-Time Compute: Trading latency for accuracy</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--reason)">8.5</div><div class="outline-text">Summary</div></div>
             </div>
           </div>
@@ -737,21 +1116,21 @@ const bookData = [
             </div>
           </div>
         `
-      },
-      {
-        id: "ch9", num: "Chapter 9", title: "Sim-to-Real: Closing the Gap", color: "var(--reason)",
-        content: `
+          },
+          {
+            id: "ch9", num: "Chapter 9", title: "Sim-to-Real: Closing the Gap", color: "var(--reason)",
+            content: `
           <div class="sec-label" style="background:var(--reason-bg);color:var(--reason);border:1px solid rgba(192,132,252,0.3)">Crossing the Chasm</div>
           <h2>Sim-to-Real: Closing the Gap</h2>
-          <p class="ch-desc">Why models that work perfectly in Gym crash in the real world, and how to fix it by systematically augmenting the simulator.</p>
+          <p class="ch-desc">Simulation-trained policies fail on real hardware due to visual, physics, and latency gaps with the real world. The reader implements domain randomization, identifies sources of distribution shift, and follows a systematic debugging methodology for physical deployment. Readers with a robotic arm run transfer experiments; those without work through annotated real-world case studies.</p>
 
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
             <div class="outline-list">
               <div class="outline-item"><div class="outline-num" style="color:var(--reason)">9.1</div><div class="outline-text">The Reality Gap</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--reason)">9.2</div><div class="outline-text">Domain Randomization</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--reason)">9.3</div><div class="outline-text">Handling distribution shift</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--reason)">9.4</div><div class="outline-text">Debugging physical deployment</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--reason)">9.3</div><div class="outline-text">Handling Distribution Shift</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--reason)">9.4</div><div class="outline-text">Debugging Physical Deployment</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--reason)">9.5</div><div class="outline-text">Summary</div></div>
             </div>
           </div>
@@ -784,27 +1163,27 @@ const bookData = [
             </div>
           </div>
         `
-      }
-    ]
-  },
-  {
-    part: 5, partTitle: "Deployment & Future",
-    chapters: [
+          }
+        ]
+      },
       {
-        id: "ch10", num: "Chapter 10", title: "Efficient Deployment", color: "var(--deploy)",
-        content: `
+        part: 5, partTitle: "Deployment & Future",
+        chapters: [
+          {
+            id: "ch10", num: "Chapter 10", title: "Efficient Deployment", color: "var(--deploy)",
+            content: `
           <div class="sec-label" style="background:var(--deploy-bg);color:var(--deploy);border:1px solid rgba(244,63,94,0.3)">Edge Hardware</div>
           <h2>Efficient Deployment</h2>
-          <p class="ch-desc">A VLA is useless if it takes 2 seconds to predict a movement. How to compress the model to run at 50Hz on a Jetson Orin Nano.</p>
+          <p class="ch-desc">A 500ms inference step can't control a robot at 50Hz. The reader profiles the VLA pipeline, applies quantization (PTQ, QAT, INT8/NF4), exports to ONNX/TensorRT, and implements action chunking with asynchronous inference. The target: a complete VLA running within a tight latency budget on edge hardware, matching production consumer-robot requirements.</p>
 
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
             <div class="outline-list">
-              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">10.1</div><div class="outline-text">The latency budget</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">10.2</div><div class="outline-text">Profiling your VLA pipeline</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">10.1</div><div class="outline-text">The Latency Budget</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">10.2</div><div class="outline-text">Profiling your VLA Pipeline</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">10.3</div><div class="outline-text">Quantization (PTQ, QAT, FP16/INT8/NF4)</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">10.4</div><div class="outline-text">Model export and acceleration (ONNX, TensorRT)</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">10.5</div><div class="outline-text">Real-time control: Action chunking and async inference</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">10.4</div><div class="outline-text">Model Export and Acceleration (ONNX, TensorRT)</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">10.5</div><div class="outline-text">Real-time Control: Action chunking and async inference</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">10.6</div><div class="outline-text">Summary</div></div>
             </div>
           </div>
@@ -851,22 +1230,22 @@ const bookData = [
             </div>
           </div>
         `
-      },
-      {
-        id: "ch11", num: "Chapter 11", title: "What's Next", color: "var(--deploy)",
-        content: `
+          },
+          {
+            id: "ch11", num: "Chapter 11", title: "What's Next", color: "var(--deploy)",
+            content: `
           <div class="sec-label" style="background:var(--deploy-bg);color:var(--deploy);border:1px solid rgba(244,63,94,0.3)">The Horizon</div>
           <h2>What's Next</h2>
-          <p class="ch-desc">Where the industry is heading. Moving from single-arm tabletop tasks to humanoid general-purpose robots.</p>
+          <p class="ch-desc">We cover scaling laws for embodied intelligence, world models, predictive learning, how video generation (Cosmos, Sora) is being repurposed for robotic planning, multi-robot fleet learning, and an honest assessment of how far we are from general-purpose robots. The reader leaves with the vocabulary and map to navigate the research frontier.</p>
           
           <div class="outline-box">
             <div class="outline-title">Chapter Outline</div>
             <div class="outline-list">
-              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.1</div><div class="outline-text">Scaling laws for embodied intelligence</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.2</div><div class="outline-text">World models and predictive learning</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.3</div><div class="outline-text">Video generation meets robotics (Sora, Cosmos)</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.4</div><div class="outline-text">Multi-robot coordination and fleet learning</div></div>
-              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.5</div><div class="outline-text">The road to general-purpose robots</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.1</div><div class="outline-text">Scaling Laws for Embodied Intelligence</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.2</div><div class="outline-text">World Models and Predictive Learning</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.3</div><div class="outline-text">Video Generation Meets Robotics (Sora, Cosmos)</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.4</div><div class="outline-text">Multi-robot Coordination and Fleet Learning</div></div>
+              <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.5</div><div class="outline-text">The Road to General-Purpose Robots</div></div>
               <div class="outline-item"><div class="outline-num" style="color:var(--deploy)">11.6</div><div class="outline-text">Summary</div></div>
             </div>
           </div>
@@ -886,80 +1265,81 @@ const bookData = [
             </div>
           </div>
         `
+          }
+        ]
       }
-    ]
-  }
-];
+    ];
 
-function initSidebar() {
-  const container = document.getElementById('nav-container');
-  let firstId = null;
+    function initSidebar() {
+      const container = document.getElementById('nav-container');
+      let firstId = null;
 
-  bookData.forEach(part => {
-    // Group Header
-    const groupDiv = document.createElement('div');
-    groupDiv.className = 'nav-group';
-    
-    const titleDiv = document.createElement('div');
-    titleDiv.className = 'nav-group-title';
-    titleDiv.innerText = `Part ${part.part}: ${part.partTitle}`;
-    groupDiv.appendChild(titleDiv);
+      bookData.forEach(part => {
+        // Group Header
+        const groupDiv = document.createElement('div');
+        groupDiv.className = 'nav-group';
 
-    // Chapters
-    part.chapters.forEach(ch => {
-      if (!firstId) firstId = ch.id;
+        const titleDiv = document.createElement('div');
+        titleDiv.className = 'nav-group-title';
+        titleDiv.innerText = `Part ${part.part}: ${part.partTitle}`;
+        groupDiv.appendChild(titleDiv);
 
-      const itemDiv = document.createElement('div');
-      itemDiv.className = 'nav-item';
-      itemDiv.id = `nav-${ch.id}`;
-      itemDiv.setAttribute('data-part', part.part);
-      itemDiv.onclick = () => loadChapter(ch.id);
+        // Chapters
+        part.chapters.forEach(ch => {
+          if (!firstId) firstId = ch.id;
 
-      const chNum = document.createElement('div');
-      chNum.className = 'nav-ch';
-      chNum.innerText = ch.num;
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'nav-item';
+          itemDiv.id = `nav-${ch.id}`;
+          itemDiv.setAttribute('data-part', part.part);
+          itemDiv.onclick = () => loadChapter(ch.id);
 
-      const chTitle = document.createElement('div');
-      chTitle.className = 'nav-title';
-      chTitle.innerText = ch.title;
+          const chNum = document.createElement('div');
+          chNum.className = 'nav-ch';
+          chNum.innerText = ch.num;
 
-      itemDiv.appendChild(chNum);
-      itemDiv.appendChild(chTitle);
-      groupDiv.appendChild(itemDiv);
-    });
+          const chTitle = document.createElement('div');
+          chTitle.className = 'nav-title';
+          chTitle.innerText = ch.title;
 
-    container.appendChild(groupDiv);
-  });
+          itemDiv.appendChild(chNum);
+          itemDiv.appendChild(chTitle);
+          groupDiv.appendChild(itemDiv);
+        });
 
-  // Load first chapter initially
-  if (firstId) loadChapter(firstId);
-}
+        container.appendChild(groupDiv);
+      });
 
-function loadChapter(chapterId) {
-  // Update active state in sidebar
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.getElementById(`nav-${chapterId}`).classList.add('active');
+      // Load first chapter initially
+      if (firstId) loadChapter(firstId);
+    }
 
-  // Find chapter data
-  let chData = null;
-  for (const part of bookData) {
-    const found = part.chapters.find(c => c.id === chapterId);
-    if (found) { chData = found; break; }
-  }
+    function loadChapter(chapterId) {
+      // Update active state in sidebar
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.getElementById(`nav-${chapterId}`).classList.add('active');
 
-  if (!chData) return;
+      // Find chapter data
+      let chData = null;
+      for (const part of bookData) {
+        const found = part.chapters.find(c => c.id === chapterId);
+        if (found) { chData = found; break; }
+      }
 
-  // Render main content
-  const main = document.getElementById('main-content');
-  main.innerHTML = `
+      if (!chData) return;
+
+      // Render main content
+      const main = document.getElementById('main-content');
+      main.innerHTML = `
     <div class="page-container">
       ${chData.content}
     </div>
   `;
-}
+    }
 
-// Initialize on load
-window.onload = initSidebar;
-</script>
+    // Initialize on load
+    window.onload = initSidebar;
+  </script>
 </body>
+
 </html>
