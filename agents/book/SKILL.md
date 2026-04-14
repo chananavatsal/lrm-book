@@ -110,8 +110,16 @@ Chapter 1 specifically must NOT be a roadmap. It must teach the topic broadly.
 - **Target length**: 19-20 pages (~5,000 words). Both Raschka Ch 1 and DAS Ch 1 are 19 pages.
 - **Figure density**: 1 figure per 2-3 pages minimum. Raschka has 9 figures in 19 pages.
 - **Caption length**: 3-5 sentences minimum. DAS captions reach 9 sentences. Captions describe what's HAPPENING, not just label.
-- **Code**: Zero or minimal in Ch 1 is acceptable IF chapter is 19-20 pages. If chapter exceeds 22 pages, code should be present.
-- **Callout boxes**: 3-5 per chapter. Each should serve a specific purpose: define a term, contrast approaches, justify a choice, or address a reader objection.
+- **Code**: Zero or minimal in Ch 1 is acceptable IF chapter is 19-20 pages. If chapter exceeds 22 pages, code should be present. Prefer a 3-line teaser early (page 2-3) with the full annotated listing later.
+- **Callout boxes**: 3-5 per chapter. Each should serve a specific purpose: define a term, contrast approaches, justify a choice, or address a reader objection. EVERY domain-specific term (SLAM, PID, inverse kinematics, proprioception) must get a callout box or inline definition on first use. The MQR is an ML engineer who does NOT know robotics jargon.
+- **Comparison tables**: Use "X vs Y" tables to ground abstract concepts (e.g., classical pipeline vs LRM, simulation vs real robot). Stolen from DAS "prototype vs production" pattern. Tables are more scannable than prose for contrasts.
+
+### Lessons from v2->v3 rewrite (April 2026)
+- Remove ALL marketing language on every pass ("revolutionary", "foundational", "elegantly simple", "absolute clearest"). These inflate claims without adding information.
+- Cut tangential examples. v2 had 2 paragraphs on Waymo/NVIDIA world models that distracted from the VLA focus. v3 compressed to 2 sentences. Rule: if a tangent exceeds 1 paragraph, it needs its own section or should be cut.
+- Add an honesty section early (Section 1.1.2 "What VLAs cannot do yet"). This builds trust with skeptical readers and differentiates from hype-driven books. Every chapter should have a "limitations" or "what this does NOT do" subsection.
+- Use concrete numbers instead of vague claims: "1 million trajectories" not "massive datasets", "256 bins" not "discrete actions", "50Hz" not "real-time". Numbers are more trustworthy and more memorable.
+- Code-figure annotation labels (#A, #B, etc.) must be consistent between the code listing and the corresponding figure. Check this explicitly.
 
 ## Locked Terminology
 
@@ -253,6 +261,8 @@ Find all code blocks in the file and check:
 5. **No em dashes** in code or annotations
 
 Report violations with code listing name and line number.
+
+6. **Code-figure label alignment**: If a figure in the chapter uses annotation labels (#A, #B, etc.), and a code listing references the same system, the labels MUST match. Check that the same letter refers to the same concept in both the figure and the code. This is a common source of reader confusion. Flag any mismatch.
 
 ### `/book caption-check <file-path>`
 
