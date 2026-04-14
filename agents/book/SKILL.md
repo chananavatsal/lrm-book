@@ -96,15 +96,22 @@ Chapter 1 specifically must NOT be a roadmap. It must teach the topic broadly.
 - Figures must be inserted "In line" with text in Google Docs
 - Captions use Heading 6 style
 
-### Required Chapter 1 sections (Manning Chapter 1 Guidelines)
+### Required Chapter 1 sections (Manning Chapter 1 Guidelines + reference book analysis)
 1. **Opening bullets** - "This chapter covers" + 3-5 bullets, max 8 lines, max 45 chars per line, NOT complete sentences
 2. **Introduction** - 2-6 paragraphs, compelling story, answers what/why/how
 3. **Section 1.1: What is the technology?** - 3-5 pages, clear definition, concrete example
 4. **Section 1.2+: Benefits** - 2-4 pages, motivating use cases, comparison to alternatives
-5. **Mental Model section** - 4-8 pages, REQUIRED: concrete scenario + diagram + annotations + rich caption + complete explanation
+5. **Mental Model section** - 4-8 pages, REQUIRED: concrete scenario + diagram + annotations + rich caption + complete explanation. Model on DAS Section 1.5 "Platform in action" which traces a concrete request through the entire system end-to-end with numbered steps.
 6. **What you need** - 1-2 pages, tools/frameworks/costs/licensing
 7. **How this book teaches** - <1 page, teaching strategy
-8. **Summary bullets** - complete sentences, abstract takeaways, applicable to future problems
+8. **Summary bullets** - complete sentences, abstract takeaways, applicable to future problems. NOT "we covered X" but "when you encounter Y, apply Z."
+
+### Chapter 1 benchmarks (from reference books)
+- **Target length**: 19-20 pages (~5,000 words). Both Raschka Ch 1 and DAS Ch 1 are 19 pages.
+- **Figure density**: 1 figure per 2-3 pages minimum. Raschka has 9 figures in 19 pages.
+- **Caption length**: 3-5 sentences minimum. DAS captions reach 9 sentences. Captions describe what's HAPPENING, not just label.
+- **Code**: Zero or minimal in Ch 1 is acceptable IF chapter is 19-20 pages. If chapter exceeds 22 pages, code should be present.
+- **Callout boxes**: 3-5 per chapter. Each should serve a specific purpose: define a term, contrast approaches, justify a choice, or address a reader objection.
 
 ## Locked Terminology
 
@@ -316,6 +323,12 @@ The primary target reader from the MQR document. This person:
 
 Reader's tone: scanning, somewhat impatient, will skip ahead if a section is boring. Internal monologue: "wait, what's a Transformer doing here? oh, they explained it. ok. wait, what's proprioception?"
 
+Check specifically:
+- Does the opening connect to MY experience (not just a Google research demo)?
+- Is the chapter under 20 pages? If not, where would I start skimming?
+- Can I see what the finished product looks like (code listing, screenshot, success rate)?
+- Is there a concrete end-to-end walkthrough (Mental Model) I can anchor my understanding to?
+
 Output: 3-5 reader experience issues. "I would get lost at line X because Y is not defined." "I would skim line Z because it sounds like marketing." "I would close the book at line W because the example is too abstract."
 
 #### Persona 4: MQR Secondary Reader (Roboticist Learning ML)
@@ -356,6 +369,12 @@ Someone deciding whether to buy the book based on Chapter 1 (the MEAP sample). T
 - **The price-to-value ratio**: is $40 worth what I am about to learn?
 
 Buyer's tone: scanning the first 5 pages, looking for reasons to commit. Internal monologue: "ok, this looks interesting, but is it for me? will I actually finish it? will I be able to apply it?"
+
+Check specifically:
+- Does the chapter stay focused on what I'm buying (a VLA book), or does it wander into surveys?
+- At 19-20 pages, does it feel complete and tight? At 28 pages, does it feel bloated?
+- Is there a code snippet or concrete output that proves the promise? (DAS has this by page 6)
+- Are there any sections where I would think "this is padding"?
 
 Output: 3-5 buyer experience issues. "The opening was strong, but by page 3 I lost interest because Y." "The from-scratch promise is unclear by the end of Ch 1." "I would not buy this because I cannot tell if it is for me."
 
