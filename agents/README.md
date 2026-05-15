@@ -4,6 +4,10 @@ Tooling for AI assistants (Claude Code, Cursor, etc.) to help with writing the b
 
 ## What's here
 
+### `research_and_draft_chapter/` - End-to-end chapter drafting recipe
+
+A 10-stage skill that drives the full pipeline for producing a first-draft chapter: research from seed sources → synthesize cross-book learnings → structure plan against the proposal → manuscript drafting → parallel section reviews → figure generation → `lrm-chapter-reviewer` pass → DOCX assembly with template styles. This is the codified version of the Chapter 4 workflow. Read `research_and_draft_chapter/SKILL.md` before starting a new chapter.
+
 ### `book/` - The `/book` skill for Claude Code
 
 A Claude Code skill that provides commands for Manning style linting, structure checking, and content review. Use it to catch Manning style violations before they reach Erik (our development editor).
@@ -38,8 +42,11 @@ These agents complement (not replace) files already in the repo:
 | File | Purpose |
 |------|---------|
 | `CLAUDE.md` | Book context and audience (for AI assistants) |
+| `SUMMARY.md` | Project-state index: resources, skills/agents, chapter status |
 | `writing_instructions/writing_instructions.md` | Manning formatting rules (fonts, styles, doc setup) |
 | `agents/book/SKILL.md` | Content linting rules (em dashes, marketing words, meta-language) |
+| `agents/research_and_draft_chapter/SKILL.md` | End-to-end first-draft pipeline (Chapter 4 recipe codified) |
+| `.claude/agents/lrm-chapter-reviewer.md` | Dedicated chapter-reviewer subagent definition |
 
 `writing_instructions.md` covers **how to format** the Google Doc. `agents/book/SKILL.md` covers **what to write** inside it. Together they cover the full Manning compliance surface.
 
