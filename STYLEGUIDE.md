@@ -13,15 +13,15 @@ This is the **contract** between the three co-authors. When in doubt, defer to t
 ## 1. Punctuation and Formatting
 
 ### Em dashes
-**RULE: Never use em dashes (—).**
+**RULE: Use em dashes sparingly. Maximum 2 per page. Only for emphasis at the end of a sentence. Never two em dashes in one sentence.**
 
-Replace with:
+When unsure, prefer:
 - Comma: "the dinosaur, not the truck"
 - Colon: "three constraints: latency, continuity, safety"
 - Period: "It worked. Until it didn't."
 - Parentheses: "the model (RT-2) reached for the dinosaur"
 
-This is a hard rule. No exceptions.
+Em dashes are a last resort, not a default. If you find yourself reaching for one, ask whether a comma, period, or parenthetical would work first. They usually do.
 
 ### Serial comma
 Use it. "Vision, language, and action." Not "vision, language and action."
@@ -88,12 +88,26 @@ Use instead: recent, effective, practical, useful, common, well-studied, establi
 - "later we cover"
 - "Chapter X covers"
 - "in the next chapter"
+- "we're going to"
+- "the goal of this book"
+- "as we mentioned earlier"
+- "let's dive in"
+- "before we proceed"
+- "at this point"
 
 Chapter content should teach, not advertise. Cross-references to other chapters are banned in Chapter 1 and used sparingly elsewhere.
 
-### Hedge words to minimize
+### Hedge and filler words (banned)
 - "very", "really", "quite", "actually", "basically", "essentially"
-- These add no information. Cut them.
+- "simply", "just", "literally" (when used as intensifiers)
+- "obviously", "clearly", "of course"
+
+These add no information. They are usually a tell that the writer is hand-waving past something they should explain. Cut them.
+
+### Sentence length
+- Soft cap: 30 words per sentence
+- If a sentence is over 30 words, ask whether it should be split
+- Some long sentences are fine for explanation and qualification, but more than 3 long sentences in a row creates fatigue
 
 ---
 
@@ -122,6 +136,19 @@ These terms are used consistently across all 11 chapters. Never deviate.
 | Action prediction at multiple steps | action chunking | action sequence prediction |
 
 When you need to introduce a synonym (e.g., "the policy" for "the model"), do it once in parentheses, then commit: "the VLA model (sometimes called a robot policy) outputs..."
+
+### Capitalization and word forms (locked)
+
+These small choices need to be consistent across all chapters:
+
+| Term | Use | Don't use |
+|------|-----|-----------|
+| Transformer architecture | Transformer (capitalized when referring to the architecture) | transformer |
+| Adapt a model | fine-tune (hyphenated) | finetune, fine tune |
+| Vision + language + action | multimodal (one word) | multi-modal |
+| Trained without modular interfaces | end-to-end (hyphenated as adjective) | end to end, end-to-end as noun |
+| Abbreviation introduction | Spell out on first use, then abbreviate | Use abbreviation first |
+| Model names | RT-2, OpenVLA, SmolVLA, pi0 (lowercase pi) | Rt2, OpenVla, etc. |
 
 ---
 
@@ -215,6 +242,53 @@ env.step(action)
 ### Tools
 - Excalidraw or draw.io recommended
 - Manning provides icon library
+
+---
+
+## 6.5 Tables
+
+- Number tables by chapter: Table 1.1, Table 1.2, ...
+- Caption uses Heading 5 style in Google Doc
+- Caption goes ABOVE the table, not below
+- Caption should describe what the table shows, not just label it
+- Bad: "Table 1.1 Comparison"
+- Good: "Table 1.1 Classical robotics pipelines vs. VLA generative policies, contrasting how each approach handles architecture, knowledge source, generalization, and adaptation to new tasks"
+
+---
+
+## 6.6 Citations and References
+
+The book follows Manning's preference for low-friction citation:
+
+- **Inline name + year** for paper references in prose: "RT-2 (Brohan et al., 2023)" on first mention. Subsequent mentions use just "RT-2".
+- **Footnotes** for URLs that the reader might actually want to click. Use sparingly. Inline URLs are visual clutter.
+- **No bibliography section** unless Erik requests one. The "Resources" section in Manning books typically lists 5-10 key references at the end.
+- **Wikipedia is not a citation.** Use the underlying source.
+- **Paper titles** are italicized.
+
+---
+
+## 6.7 Math Notation
+
+The book has minimal math but where it appears:
+
+- **Inline math**: italic, same font as body text. Type directly, do not use equation editor.
+- **Display equations**: Times New Roman 8pt, centered on its own line, use Insert > Equation in Google Doc
+- **Equation numbers**: optional. Number only if you reference the equation later.
+- **Variables**: italic when used in prose ("the loss L is computed by...")
+- **Functions**: roman ("softmax(x)" not "*softmax*(x)")
+- **Vectors**: bold lowercase ("**x**")
+- **Matrices**: bold uppercase ("**W**")
+- **Avoid**: derivations, proofs, anything requiring more than 2-3 lines of math. If you need more, the topic probably belongs in an appendix.
+
+---
+
+## 6.8 Footnotes
+
+- Use sparingly. Manning books are not academic papers.
+- Acceptable uses: clickable URL for a key reference, brief technical aside that interrupts the flow, attribution
+- Unacceptable uses: definitions (use a callout box instead), tangents, jokes
+- If a footnote is more than 2 sentences, it should probably be in the main text or a callout
 
 ---
 
@@ -326,4 +400,6 @@ Unilateral changes to locked decisions (especially terminology) should be avoide
 ---
 
 **Last updated**: 2026-04-10
-**Maintainer**: Krishnam (until otherwise assigned)
+**Last edited by**: Krishnam
+
+This document is the source of truth for style decisions. Tooling like the `/book` skill in `agents/book/` references it for linting and review. When this document changes, the tooling adapts to it, not the other way around.
