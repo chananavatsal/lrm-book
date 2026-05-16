@@ -6,6 +6,16 @@
 
 Code-heavy chapter. The reader installs tools, launches an SO-101 pick-and-place simulation, writes a scripted policy, loads expert data, and builds a reusable DataLoader. The embodiment chosen here — a low-cost 6-DOF arm with a parallel-jaw gripper — is the same embodiment used through Chapter 11, so every concept the reader learns about observations, actions, and rewards transfers directly.
 
+### A note on the listings
+
+Listings in this chapter fall into three roles:
+
+- **Type-along teaching code** — the reader writes, runs, and understands these line by line. The scripted policy, the random-agent loop, the normalization functions, and the stats computation are the conceptual core of the chapter.
+- **API illustrations** — short library calls that show how Gymnasium and LeRobot work. The reader runs these but does not need to memorize the API surface; the framework documentation is the long-term reference.
+- **Provided utilities** — visualization helpers and the DataLoader collate plumbing live in the `ch02` package and are imported, not typed. The book shows the implementation for transparency.
+
+The Listings Summary table near the end of the chapter marks the role of each listing.
+
 ---
 
 ## Why pick-and-place from Chapter 2
@@ -385,7 +395,7 @@ print(f"\nEpisode 0 length: {len(ep_indices)} steps")
 - Episodes overlap in shape (all start, lift, transport, place) but differ in timing and amplitude depending on initial cube pose.
 - This visually confirms that a successful policy must be conditional on the observation, not a single memorized trajectory.
 
-The `render_keyframes` function in listing 2.7 samples evenly spaced frames from one episode and tiles the top-down and wrist-camera views into a two-row figure saved at print resolution. This produces figure 2.4 directly from the dataset.
+Listing 2.7 implements `render_keyframes` as a utility in `ch02.viz`. Import it as `from ch02.viz import render_keyframes` and call it on the dataset; the source is shown here for transparency about how the helper tiles the two camera views.
 
 **Listing 2.7: Rendering expert keyframes from both camera views**
 ```python
@@ -417,7 +427,7 @@ def render_keyframes(dataset, episode_idx=0, n_frames=6):
 - #B LeRobot stores images as (C, H, W) — permute for matplotlib
 - #C Save at print resolution (300 DPI) per the figure style guide
 
-Listing 2.8 collects actions from all three policies and overlays per-dimension histograms in figure 2.5. The structural gap between the scripted and expert distributions is the gap a learned policy has to close.
+Listing 2.8 lives in `ch02.viz` alongside `render_keyframes`. It collects actions from all three policies and overlays per-dimension histograms in figure 2.5. Import it as `from ch02.viz import plot_action_distributions` — the structural gap between the scripted and expert distributions is the gap a learned policy has to close.
 
 **Listing 2.8: Per-joint action distributions — expert vs. scripted vs. random**
 ```python
@@ -562,7 +572,7 @@ assert torch.allclose(sample, recovered, atol=1e-5)       #B
 - #A The small epsilon prevents division by zero for features that are constant across the dataset
 - #B Verify the round-trip is lossless to floating-point precision
 
-Listing 2.11 ties the dataset, the statistics, and the normalization functions into the chapter's primary export: `make_pickplace_dataloader`. Chapter 3 imports this function directly and treats its signature as frozen.
+Listing 2.11 ties the dataset, the statistics, and the normalization functions into the chapter's primary export: `make_pickplace_dataloader`. The function lives in `ch02.pipeline` and is imported as `from ch02.pipeline import make_pickplace_dataloader`. Chapter 3 imports it the same way and treats the signature as frozen — the listing is shown here so the reader understands what the function does, not because the reader writes it from scratch.
 
 **Listing 2.11: Building the DataLoader — the Chapter 3 API contract**
 ```python
@@ -649,19 +659,19 @@ Comprehensive bulleted summary:
 
 ## Listings Summary
 
-| Listing | Title | Section |
-|---------|-------|---------|
-| 2.1 | Installing the SO-101 sim and creating the environment | 2.1 |
-| 2.2 | Running a random agent on PickPlaceCube | 2.1 |
-| 2.3 | A multi-phase scripted pick-and-place policy | 2.2 |
-| 2.4 | Evaluating the scripted policy | 2.2 |
-| 2.5 | Loading the SO-101 pick-and-place expert dataset | 2.3 |
-| 2.6 | Inspecting a single frame and one episode | 2.3 |
-| 2.7 | Rendering expert keyframes from both camera views | 2.4 |
-| 2.8 | Per-joint action distributions — expert vs. scripted vs. random | 2.4 |
-| 2.9 | Computing normalization statistics manually | 2.5 |
-| 2.10 | Normalize and denormalize functions | 2.5 |
-| 2.11 | Building the DataLoader — the Chapter 3 API contract | 2.5 |
+| Listing | Title | Section | Mode |
+|---------|-------|---------|------|
+| 2.1 | Installing the SO-101 sim and creating the environment | 2.1 | API illustration |
+| 2.2 | Running a random agent on PickPlaceCube | 2.1 | **Type-along** |
+| 2.3 | A multi-phase scripted pick-and-place policy | 2.2 | **Type-along** |
+| 2.4 | Evaluating the scripted policy | 2.2 | API illustration |
+| 2.5 | Loading the SO-101 pick-and-place expert dataset | 2.3 | API illustration |
+| 2.6 | Inspecting a single frame and one episode | 2.3 | API illustration |
+| 2.7 | Rendering expert keyframes from both camera views | 2.4 | Provided utility (`ch02.viz`) |
+| 2.8 | Per-joint action distributions — expert vs. scripted vs. random | 2.4 | Provided utility (`ch02.viz`) |
+| 2.9 | Computing normalization statistics manually | 2.5 | **Type-along** |
+| 2.10 | Normalize and denormalize functions | 2.5 | **Type-along** |
+| 2.11 | Building the DataLoader — the Chapter 3 API contract | 2.5 | Provided utility (`ch02.pipeline`) |
 
 ## Figure Summary
 
