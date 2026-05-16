@@ -31,6 +31,10 @@ This is the simplest version of the task family the reader will end on. One cube
 - **Paragraph 1:** A robot policy is only as good as the data that trains it — and only as transferable as the embodiment that produced it. Before writing a single line of model code, you need three things: a simulated arm to act in, demonstrations from that arm to learn from, and a pipeline that feeds both into training. This chapter builds all three, on the embodiment you will use for the rest of the book.
 - **Paragraph 2:** You will work with `PickPlaceCube`, a task where an SO-101 arm in simulation must grasp a cube from a starting position and release it inside a target zone. It looks simple, and that is the point. Pick-and-place is complex enough to expose why hand-coded heuristics struggle (contact dynamics, gripper timing, recovery from misalignment) yet simple enough to train on a laptop in an evening. By the end of this chapter, you will have a working data pipeline that Chapter 3 plugs directly into — and an embodiment that does not change again until Chapter 11.
 
+**Figure 2.1: Where this chapter sits in the book**
+- Reuse the book-wide roadmap diagram from Figure 1.7 with the Chapter 2 stage highlighted ("Simulation & Data"). Stages: Foundations (Ch 1-2, current) → Architecture & Imitation (Ch 3-5) → Scaling (Ch 6-7) → Advanced (Ch 8-9) → Deployment (Ch 10-11).
+- Caption: "The book's five-part progression with the current chapter highlighted. Chapter 2 builds the simulation environment, scripted-policy baseline, and normalized data pipeline that every later chapter consumes. By the end of this chapter, the embodiment and data interface are fixed for the remaining nine chapters."
+
 ---
 
 ## Section 2.1: The SO-101 Pick-and-Place Environment
@@ -60,6 +64,8 @@ This is the simplest version of the task family the reader will end on. One cube
 - Random agents almost never solve pick-and-place — the success rate is essentially zero
 - This establishes the performance floor and motivates everything that follows
 
+Listing 2.1 installs the simulation libraries and constructs a `PickPlaceCube` environment instance with image observations enabled. The action space is `Box(7,)` — six joint deltas plus a gripper command — and matches the structure of every learned policy in later chapters.
+
 **Listing 2.1: Installing the SO-101 sim and creating the environment**
 ```python
 # pip install lerobot gym-lowcostrobot
@@ -81,6 +87,8 @@ print(f"Action space: {env.action_space}")      #F
 - #D Return both vector state and camera images so we can use either downstream
 - #E Reset returns the initial observation dictionary and an info dict
 - #F Action is Box(7,) — six joint deltas plus a gripper command
+
+The `run_random_agent` function in listing 2.2 executes the Gymnasium interaction loop with uniformly sampled actions and reports the success rate over a fixed number of episodes. This is the performance floor every learned policy must clear.
 
 **Listing 2.2: Running a random agent on PickPlaceCube**
 ```python
@@ -120,11 +128,11 @@ print(f"Random agent: success={success_rate:.0%} "
 - The residual kinematic gap is real but small, and isolating it to a single sim-to-real chapter (Chapter 9) is cleaner pedagogy than pretending it does not exist.
 - This is the canonical sim-to-real problem in miniature, and Chapter 9 is built around it.
 
-**Figure 2.1: The SO-101 Pick-and-Place Task**
+**Figure 2.2: The SO-101 Pick-and-Place Task**
 - Annotated screenshot showing the arm in start pose, the cube on the workspace, the target zone outlined on the table, and a small inset of the wrist-camera view.
 - Caption: "The PickPlaceCube task. A 6-DOF arm with a parallel-jaw gripper (SO-100 URDF, branded as SO-101 for the book) must grasp the cube and release it inside the target zone. The reward combines approach distance, grasp success, transport distance, and a discrete success bonus on placement."
 
-**Figure 2.2: The Gymnasium Loop**
+**Figure 2.3: The Gymnasium Loop**
 - Flow diagram: `reset()` → observation → agent selects action → `step(action)` → (obs, reward, terminated, truncated, info) → loop back or done.
 - Caption: "The Gymnasium interaction loop. The agent receives an observation, selects an action, and the environment returns the next observation, a scalar reward, and termination flags. Every environment in this book — sim and real — exposes this interface."
 
@@ -169,6 +177,8 @@ print(f"Random agent: success={success_rate:.0%} "
   - Cases where contact pushes the cube out of position during descent
 - It is open-loop within each phase — no recovery once the gripper misses
 - Key insight: even a "smart" heuristic plateaus far below expert performance. Learned policies can capture the subtle contact dynamics and recovery behaviors that rules miss.
+
+Listing 2.3 defines the seven-phase scripted controller as a single `scripted_policy` function. State is carried across calls in a small dictionary that records the current phase and frame counters — exactly the kind of bookkeeping a learned policy will replace with weights.
 
 **Listing 2.3: A multi-phase scripted pick-and-place policy**
 ```python
@@ -232,6 +242,8 @@ def scripted_policy(obs, state):
 - #E Release the cube at the target
 - #F Convert the desired Cartesian motion into a joint-space action, clipped to the env's range
 
+The `run_scripted_agent` function in listing 2.4 mirrors the random-agent loop but threads the per-episode state dictionary through `scripted_policy`. Reported success rates climb above zero but settle well below what teleoperators achieve, motivating the data-driven approach.
+
 **Listing 2.4: Evaluating the scripted policy**
 ```python
 def run_scripted_agent(env, n_episodes=10):
@@ -292,6 +304,8 @@ print(f"Scripted agent success rate: {rate:.0%}")       #B
 - Show how episodes begin (reset state) and end (success or timeout).
 - Count steps per episode — episodes have variable length depending on how quickly the teleoperator completed the task.
 
+Listing 2.5 instantiates the `LeRobotDataset` for the SO-100 pick-and-place dataset and prints its overall size and feature schema. The dataset ID is a placeholder — at implementation time, pin to a specific dataset from the LeRobot Hub.
+
 **Listing 2.5: Loading the SO-101 pick-and-place expert dataset**
 ```python
 from lerobot.common.datasets.lerobot_dataset import LeRobotDataset
@@ -306,6 +320,8 @@ print(f"Features: {list(dataset.features.keys())}")     #C
 - #A Placeholder dataset ID — verify and replace with the chosen SO-100 pick-and-place dataset at implementation time
 - #B Total number of (observation, action) frames across all episodes
 - #C Feature names include the state vector, two camera streams, the action, and episode/frame metadata
+
+Listing 2.6 indexes into the dataset to inspect a single frame's shape and dtype, then collects every frame belonging to episode zero to confirm episode-length variation. This concretizes the abstract feature schema for the reader.
 
 **Listing 2.6: Inspecting a single frame and one episode**
 ```python
@@ -369,6 +385,8 @@ print(f"\nEpisode 0 length: {len(ep_indices)} steps")
 - Episodes overlap in shape (all start, lift, transport, place) but differ in timing and amplitude depending on initial cube pose.
 - This visually confirms that a successful policy must be conditional on the observation, not a single memorized trajectory.
 
+The `render_keyframes` function in listing 2.7 samples evenly spaced frames from one episode and tiles the top-down and wrist-camera views into a two-row figure saved at print resolution. This produces figure 2.4 directly from the dataset.
+
 **Listing 2.7: Rendering expert keyframes from both camera views**
 ```python
 import matplotlib.pyplot as plt
@@ -392,12 +410,14 @@ def render_keyframes(dataset, episode_idx=0, n_frames=6):
     axes[0, 0].set_ylabel("top view")
     axes[1, 0].set_ylabel("wrist view")
     plt.tight_layout()
-    plt.savefig("figures/figure_2_3_expert_keyframes.png",
+    plt.savefig("figures/figure_2_4_expert_keyframes.png",
                 dpi=300)                                  #C
 ```
 - #A Sample `n_frames` evenly spaced indices across the episode
 - #B LeRobot stores images as (C, H, W) — permute for matplotlib
 - #C Save at print resolution (300 DPI) per the figure style guide
+
+Listing 2.8 collects actions from all three policies and overlays per-dimension histograms in figure 2.5. The structural gap between the scripted and expert distributions is the gap a learned policy has to close.
 
 **Listing 2.8: Per-joint action distributions — expert vs. scripted vs. random**
 ```python
@@ -435,22 +455,22 @@ for j, name in enumerate(joint_names):
     ax.set_title(name)
     ax.legend(fontsize=8)
 plt.tight_layout()
-plt.savefig("figures/figure_2_4_action_distributions.png",
+plt.savefig("figures/figure_2_5_action_distributions.png",
             dpi=300)
 ```
 - #A `None` indicates the random policy
 - #B Stack all expert actions from the dataset into a single array
 - #C Overlapping histograms reveal the distributional gap per joint
 
-**Figure 2.3: Expert Pick-and-Place Keyframes**
+**Figure 2.4: Expert Pick-and-Place Keyframes**
 - A 2x6 grid: top row is the top-down camera, bottom row is the wrist-mounted camera, columns are six keyframes from one expert episode spanning approach → grasp → lift → transport → place → release.
 - Caption: "Keyframes from one expert episode. The top-down view shows the macroscopic motion of the arm; the wrist view shows the contact-level detail of the grasp. A learned policy must capture both perspectives to handle objects whose position is only partially visible from above."
 
-**Figure 2.4: Per-Joint Action Distributions — Expert vs. Scripted vs. Random**
+**Figure 2.5: Per-Joint Action Distributions — Expert vs. Scripted vs. Random**
 - Seven overlapping histograms, one per action dimension, comparing the three policies.
 - Caption: "Action distributions for each of the seven action dimensions. Expert actions show structured, multi-modal clusters that reflect different grasp strategies. The scripted policy produces a simpler, lower-variance pattern. Random actions are uniform across the range. The gap between the scripted and expert histograms is what a learned policy must close."
 
-**Figure 2.5: Expert Joint Trajectories**
+**Figure 2.6: Expert Joint Trajectories**
 - Six small line plots, one per arm joint, showing joint angle over time for five overlaid expert episodes.
 - Caption: "Joint trajectories from five expert episodes. Episodes share the same coarse structure (approach, lift, transport, place) but diverge in timing and amplitude depending on the initial cube pose. A successful policy must be conditional on the current observation, not a single memorized trajectory."
 
@@ -493,6 +513,8 @@ plt.savefig("figures/figure_2_4_action_distributions.png",
 - Denormalize a sample action and verify it is in the original radian/gripper range.
 - This is the smoke test that confirms the pipeline is correct before any training begins.
 
+The `compute_stats` function in listing 2.9 iterates through every frame in the dataset and computes per-dimension mean, std, min, and max for both `observation.state` and `action`. These statistics are the only piece of training-time state that has to survive into inference.
+
 **Listing 2.9: Computing normalization statistics manually**
 ```python
 import torch
@@ -520,6 +542,8 @@ def compute_stats(dataset):
 ```
 - #A Collect every state and action across the entire dataset to compute exact statistics
 
+Listing 2.10 defines the `normalize` and `denormalize` functions used everywhere in the book and verifies the round-trip is lossless to floating-point precision. Both functions take the same `(x, stats, key)` signature so they compose cleanly with the dataloader's collate function.
+
 **Listing 2.10: Normalize and denormalize functions**
 ```python
 def normalize(x, stats, key):
@@ -537,6 +561,8 @@ assert torch.allclose(sample, recovered, atol=1e-5)       #B
 ```
 - #A The small epsilon prevents division by zero for features that are constant across the dataset
 - #B Verify the round-trip is lossless to floating-point precision
+
+Listing 2.11 ties the dataset, the statistics, and the normalization functions into the chapter's primary export: `make_pickplace_dataloader`. Chapter 3 imports this function directly and treats its signature as frozen.
 
 **Listing 2.11: Building the DataLoader — the Chapter 3 API contract**
 ```python
@@ -594,11 +620,11 @@ print(f"image range: [{batch['observation.images.top'].min():.2f},"
 - After the model predicts a normalized action, `denormalize()` converts it back to environment scale before calling `env.step()`.
 - Treat the function signature `make_pickplace_dataloader(dataset_id, batch_size, shuffle)` as frozen — renaming or re-ordering arguments breaks every downstream chapter.
 
-**Figure 2.6: The Normalization Round-Trip**
+**Figure 2.7: The Normalization Round-Trip**
 - Flow diagram: raw observation/action → `normalize(x, stats)` → zero-centered input → model prediction (normalized) → `denormalize(ŷ, stats)` → environment-scale action → `env.step()`.
 - Caption: "The normalization round-trip. Observations and actions are z-score normalized before entering the model. Predicted actions are denormalized back to radians and gripper commands before being sent to the simulator. The stats dictionary bridges both directions and is the only piece of training-time state that has to survive into inference."
 
-**Figure 2.7: End-to-End Data Pipeline**
+**Figure 2.8: End-to-End Data Pipeline**
 - Flow diagram: Hugging Face Hub → LeRobotDataset → compute_stats → DataLoader with normalize-in-collate → training batch {state, images, action} → Chapter 3 model.
 - Caption: "The complete data pipeline built in this chapter. Expert demonstrations are loaded from the Hub, normalization statistics are computed once, and a DataLoader applies the right normalization to each feature type at batch time. `make_pickplace_dataloader()` encapsulates the entire flow as the API contract for Chapter 3."
 
@@ -641,13 +667,14 @@ Comprehensive bulleted summary:
 
 | Figure | Description | Type | Section |
 |--------|------------|------|---------|
-| 2.1 | The SO-101 Pick-and-Place Task | Annotated screenshot | 2.1 |
-| 2.2 | The Gymnasium Loop | Flow diagram | 2.1 |
-| 2.3 | Expert Pick-and-Place Keyframes | Two-row image filmstrip | 2.4 |
-| 2.4 | Per-Joint Action Distributions | Overlaid histograms | 2.4 |
-| 2.5 | Expert Joint Trajectories | Line plots | 2.4 |
-| 2.6 | The Normalization Round-Trip | Flow diagram | 2.5 |
-| 2.7 | End-to-End Data Pipeline | Flow diagram | 2.5 |
+| 2.1 | Where this chapter sits in the book (roadmap recap, Ch2 highlighted) | Stage diagram | Opening |
+| 2.2 | The SO-101 Pick-and-Place Task | Annotated screenshot | 2.1 |
+| 2.3 | The Gymnasium Loop | Flow diagram | 2.1 |
+| 2.4 | Expert Pick-and-Place Keyframes | Two-row image filmstrip | 2.4 |
+| 2.5 | Per-Joint Action Distributions | Overlaid histograms | 2.4 |
+| 2.6 | Expert Joint Trajectories | Line plots | 2.4 |
+| 2.7 | The Normalization Round-Trip | Flow diagram | 2.5 |
+| 2.8 | End-to-End Data Pipeline | Flow diagram | 2.5 |
 
 ## Callout Box Summary
 
