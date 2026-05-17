@@ -18,6 +18,24 @@ The Listings Summary table near the end of the chapter marks the role of each li
 
 ---
 
+## Reader Experience: Notebook + Optional Agent Companion
+
+This chapter ships with two reader-facing paths. The same convention applies to every later chapter — when scaffolding Chapter 3+, lift this section verbatim and adjust the chapter number.
+
+- **`notebooks/chXX.ipynb` — the canonical path.** The book's prose maps cell-by-cell to this notebook. Type-along listings appear inline so the reader can read and rerun (or retype) them. API illustrations are short calls in their own cells. Provided utilities are imported from `src/chXX/` with a one-liner. This notebook is version-pinned and kept green at the author end; the reader should never have to debug dependency drift to make it run.
+- **`agents/chapter-XX-guide.md` — an experimental companion.** A per-chapter Claude Code subagent definition (zero-padded chapter number, e.g. `chapter-02` for this chapter, per `MANNING_STYLE.md`). Canonical source lives in `agents/`; symlinked into `.claude/agents/` at reader setup time so Claude Code auto-discovers it. The agent walks the reader through the same listings in the same order. The added value over the notebook is dialogue: the reader can ask clarification questions, ask "why this," request a sharper explanation in their own framing, or get unstuck when something breaks. Scope is strictly self-contained to the chapter — the agent is not a tutor for the rest of the book and should not skate into the next chapter's material.
+
+The agent's system prompt is a first-class deliverable, on par with the notebook. It must encode:
+
+- The chapter's listing order and the role of each (type-along / API illustration / provided utility).
+- Where to pause and check understanding before moving on (typically at the end of each section).
+- When to defer back to the book or notebook rather than improvise an answer.
+- What this chapter does *not* cover, so the agent declines to wander into later-chapter material.
+
+This is Manning's first book to ship a chapter agent alongside the standard book + notebook artifacts. The workflow is explicitly framed as experimental in the front matter: the notebook is the default and is what we promise will work end-to-end; the agent is offered to readers who want guided, conversational learning. Tests in `tests/` are author/CI infrastructure — readers may run them as an install smoke check but are not expected to engage with them.
+
+---
+
 ## Why pick-and-place from Chapter 2
 
 The book's endpoint is a physical SO-101 on the reader's desk performing tasks like "hand me the pen" or "put the pen in the stand." For the reader's mental model to transfer cleanly from simulation through reinforcement learning, reasoning, sim-to-real, and deployment, the carrier task must share the same embodiment, action space, and observation pipeline at every step.
@@ -74,29 +92,33 @@ This is the simplest version of the task family the reader will end on. One cube
 - Random agents almost never solve pick-and-place — the success rate is essentially zero
 - This establishes the performance floor and motivates everything that follows
 
-Listing 2.1 installs the simulation libraries and constructs a `PickPlaceCube` environment instance with image observations enabled. The action space is `Box(7,)` — six joint deltas plus a gripper command — and matches the structure of every learned policy in later chapters.
+Listing 2.1 installs the simulation libraries and constructs a `PickCubeSO100-v1` environment instance with image observations enabled. The action space matches the SO-100's 6-DOF joint command structure and carries forward to every learned policy in later chapters.
 
-**Listing 2.1: Installing the SO-101 sim and creating the environment**
+**Listing 2.1: Installing the SO-100 sim and creating the environment**
 ```python
-# pip install lerobot gym-lowcostrobot
+# pip install lerobot mani-skill
 import gymnasium as gym                          #A
-import gym_lowcostrobot                          #B
+import mani_skill.envs                           #B
 
 env = gym.make(                                  #C
-    "PickPlaceCube-v0",
-    observation_mode="both",                     #D
+    "PickCubeSO100-v1",
+    obs_mode="rgb",                              #D
+    control_mode="pd_joint_delta_pos",           #E
     render_mode="rgb_array",
 )
-obs, info = env.reset(seed=42)                   #E
+obs, info = env.reset(seed=42)                   #F
 print(f"Observation keys: {list(obs.keys())}")
-print(f"Action space: {env.action_space}")      #F
+print(f"Action space: {env.action_space}")      #G
 ```
-- #A Core simulation API
-- #B Registers SO-100/SO-101 tasks (PickPlaceCube, Reach, Stack, etc.) as Gymnasium envs
-- #C Create the pick-and-place environment
-- #D Return both vector state and camera images so we can use either downstream
-- #E Reset returns the initial observation dictionary and an info dict
-- #F Action is Box(7,) — six joint deltas plus a gripper command
+- #A Gymnasium API
+- #B Importing `mani_skill.envs` registers `PickCubeSO100-v1` and the rest of the SO-100 task family
+- #C Create the SO-100 pick-and-place environment
+- #D Return RGB camera observations (alternatives: `"state"`, `"rgbd"`, `"state_dict"`)
+- #E Joint-space delta actions in the same format the SO-100 hardware expects
+- #F Reset returns the initial observation dictionary and an info dict
+- #G Action is `Box(6,)` — one delta per SO-100 joint, gripper included as joint 6
+
+**Editorial note (implementation):** Table 2.1's observation/action schema and listings 2.3–2.4's scripted policy reference gym-lowcostrobot-style keys (`arm_qpos`, `cube_pos`, etc.); ManiSkill's actual observation dict uses different keys (`agent.qpos`, `extra.tcp_pose`, etc.) which will be confirmed and updated when PR 2 and PR 3 land.
 
 The `run_random_agent` function in listing 2.2 executes the Gymnasium interaction loop with uniformly sampled actions and reports the success rate over a fixed number of episodes. This is the performance floor every learned policy must clear.
 
