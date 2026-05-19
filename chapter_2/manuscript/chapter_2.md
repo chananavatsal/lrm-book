@@ -5,16 +5,16 @@
 This chapter covers
 
 - Setting up the SO-101 simulation environment using ManiSkill3 and the Gymnasium interface
-- Understanding observations, actions, episodes, and rewards for a 6-DOF arm with a parallel-jaw gripper
+- Observations, actions, episodes, and rewards for a 6-DOF arm with a parallel-jaw gripper
 - Writing a scripted pick-and-place policy as an explicit state machine, and observing its failure modes
 - Loading, inspecting, and visualizing expert demonstration data from the LeRobot Hub
 - Building a normalized DataLoader that becomes the data contract for chapter 3
 
 A robot policy is only as good as the data that trains it, and only as transferable as the embodiment that produces that data. Before you write a single line of model code, you need three things: a simulated arm to act in, demonstrations from that arm to learn from, and a pipeline that feeds both into training. The sections that follow build all three, on the embodiment you will use across every remaining chapter.
 
-The task is *PickCubeSO100-v1*, a simulated pick-and-place job for a 6-DOF arm with a parallel-jaw gripper. The arm must approach a cube on a workspace, grasp it, lift it clear, transport it above a target zone, and release. It looks simple, and that is the point. Pick-and-place is complex enough to expose why hand-coded heuristics struggle, with contact dynamics, gripper timing, and recovery from misalignment all conspiring against a few rules, yet simple enough to train on a laptop in an evening. After section 2.5 you have a working data pipeline that chapter 3 plugs directly into, and an embodiment that does not change again until chapter 11.
+The task is *PickCubeSO100-v1*, a simulated pick-and-place job for a 6-DOF (six degrees of freedom) arm with a parallel-jaw gripper (two opposing fingers that close symmetrically to pinch an object). The arm must approach a cube on a workspace, grasp it, lift it clear, transport it above a target zone, and release. It looks simple, and that is the point. Pick-and-place is complex enough to expose why hand-coded heuristics struggle, with contact dynamics, gripper timing, and recovery from misalignment all conspiring against a few rules, yet simple enough to train on a laptop in an evening. After section 2.5 you have a working data pipeline that chapter 3 plugs directly into, and an embodiment that does not change again until chapter 11.
 
-Section 2.1 sets up the ManiSkill3 simulator and the Gymnasium interface, then runs a random agent to establish a performance floor. Section 2.2 introduces a scripted state-machine policy and observes its failure modes, the motivation for learning from data. Section 2.3 loads expert demonstrations from the LeRobot Hub and walks through the dataset's feature schema, including the `delta_timestamps` mechanism that later chapters use for action chunking. Section 2.4 visualizes the expert data side by side with the scripted and random baselines, making the policy gap concrete. Section 2.5 closes the loop with normalization statistics, the `normalize` and `denormalize` functions, and the `make_pickplace_dataloader` export that chapter 3 imports unchanged.
+ManiSkill3 and the Gymnasium interface come first; a random agent establishes the performance floor. A scripted state-machine policy then shows where hand-coded rules plateau and why. Expert demonstrations from the LeRobot Hub follow, including the `delta_timestamps` mechanism that chapters 4 and 5 use for action chunking. The expert data is visualized side by side with the scripted and random baselines, making the policy gap concrete. Normalization statistics, the `normalize` and `denormalize` functions, and the `make_pickplace_dataloader` export that chapter 3 imports unchanged close out the chapter.
 
 ![Figure 2.1 The book's five-part progression with chapter 2 highlighted. Chapter 2 builds the simulation environment, scripted-policy baseline, and normalized data pipeline that every later chapter consumes. The embodiment and data interface are fixed by the end of section 2.5 and stay fixed for the remaining nine chapters.](figures/figure_2_1_roadmap.png)
 
@@ -50,22 +50,22 @@ print(f"Observation keys: {list(obs.keys())}")
 print(f"Action space: {env.action_space}")      #G
 ```
 
-#A Gymnasium is the standard Python API for simulation and reinforcement-learning environments. Every environment we work with exposes `reset()` and `step(action)`.
+#A Import the Gymnasium API, the simulation interface every environment in the book exposes through `reset()` and `step()`.
 #B Importing `mani_skill.envs` registers `PickCubeSO100-v1` and the rest of the SO-100 task family with Gymnasium.
 #C Create the SO-100 pick-and-place environment instance.
 #D Return RGB camera observations. Alternatives are `"state"` for vector-only, `"rgbd"` for RGB plus depth, and `"state_dict"` for vector observations broken out by source.
-#E Joint-space delta actions in the same format the SO-100 hardware expects, so policies trained in simulation can be deployed without an action-space transformation.
+#E Joint-space delta actions in the same control mode the SO-100 hardware uses. The sim-to-real gap discussed in the callout below is small but real.
 #F `reset` returns the initial observation dictionary and an info dictionary.
-#G The action space is `Box(6,)`: one delta per SO-100 joint, with the gripper included as joint 6.
+#G The action space is `Box(7,)`: six joint deltas (one per arm joint) plus one gripper command, all in the range `[-1, 1]`.
 
 Running this prints the observation keys and the action space:
 
 ```
 Observation keys: ['agent', 'extra', 'sensor_data']
-Action space: Box(-1.0, 1.0, (6,), float32)
+Action space: Box(-1.0, 1.0, (7,), float32)
 ```
 
-Exact key names depend on the ManiSkill version. Verify them with `print(obs)` if anything downstream complains about a missing key. The `agent` group contains proprioception (joint angles, joint velocities, gripper state). The `extra` group contains task-level observations: the cube pose, the target pose, and the end-effector pose. The `sensor_data` group contains the camera images.
+Exact key names depend on the ManiSkill version. Verify them with `print(obs)` if anything downstream complains about a missing key. The `agent` group contains the arm's self-awareness of its own state, called *proprioception*: joint angles, joint velocities, and gripper state. The `extra` group contains task-level observations: the cube pose, the target pose, and the end-effector pose (the position and orientation of the gripper assembly at the tip of the arm). The `sensor_data` group contains the camera images.
 
 > **WHAT IS GYMNASIUM?** Gymnasium (formerly OpenAI Gym) is the standard Python API for simulation and reinforcement-learning environments. Every environment exposes `reset()` and `step(action)`, a universal interface regardless of the task or embodiment. LeRobot and ManiSkill3 both register their environments as Gymnasium environments, so the same code patterns work for simulation, real-hardware wrappers, and benchmark tasks across the ecosystem.
 
@@ -85,7 +85,7 @@ A *step* is a single (observation, action, reward, next_observation) transition,
 
 An *episode* is a sequence of steps from `reset()` to termination. PickCubeSO100 terminates an episode either when the cube reaches the target zone (a success) or when the maximum episode length is reached (a timeout, also called a truncation). Episodes are independent; nothing carries over from one episode to the next.
 
-A *reward* is a scalar that quantifies how good the current step was. PickCubeSO100 uses a shaped reward: a continuous signal that combines the distance from the gripper to the cube while approaching, a lift bonus once the cube has been grasped, the distance from the cube to the target during transport, and a discrete success bonus when the cube enters the target zone. Shaped rewards make hand-coded scripted policies tractable, and they also make learning-from-scratch (chapter 7) feasible without dense exploration.
+A *reward* is a scalar that quantifies how good the current step was. PickCubeSO100 uses a shaped reward: a continuous signal that combines the distance from the gripper to the cube while approaching, a lift bonus once the cube has been grasped, the distance from the cube to the target during transport, and a discrete success bonus when the cube enters the target zone. Shaped rewards give the agent a useful signal at every step rather than only on the rare success events that a sparse reward would provide. That matters both for the heuristic in section 2.2 and for the reinforcement-learning chapter later, where exploration is hard.
 
 ![Figure 2.3 The PickCubeSO100 task. A 6-DOF arm with a parallel-jaw gripper (SO-100 URDF in simulation, SO-101 on hardware) must grasp the cube on the workspace and release it inside the target zone. The reward combines approach distance, grasp success, transport distance, and a discrete success bonus on placement.](figures/figure_2_3_pickcube_task.png)
 
@@ -146,7 +146,7 @@ Running this prints something like:
 Random agent: success=0% return=-0.42
 ```
 
-Numbers vary by seed; what matters is that the success rate is effectively zero and the return is negative. The return is negative because the shaped reward penalizes distance from the cube and from the target, and the random agent spends most of its time far from both. A negative return is actually informative: it tells you the reward signal is dense, not sparse, which matters for the scripted policy in §2.2 and the RL training in chapter 7.
+Numbers vary by seed; what matters is that the success rate is effectively zero and the return is negative. The return is negative because the shaped reward penalizes distance from the cube and from the target, and the random agent spends most of its time far from both. A negative return is informative: it tells you the reward signal is dense, not sparse, which matters for the scripted policy in §2.2 and the RL training in chapter 7.
 
 > **EXERCISE 2.1: Joint-space vs. end-effector-space control.** Re-create the environment with `control_mode="pd_ee_delta_pose"` instead of the default joint-space mode and re-run the random agent. The action space changes from `Box(6,)` to a Cartesian delta pose plus gripper. Do random rollouts succeed any more often? Why or why not? *Tip: end-effector control hides one form of difficulty (joint coordination) while exposing another (workspace boundaries). The random agent benefits from neither.*
 
@@ -154,7 +154,7 @@ A random agent flailing the arm produces a 0% success rate. That is the floor. T
 
 ## 2.2 A scripted policy
 
-A pick-and-place task decomposes naturally into phases. The gripper has to be above the cube, then on it, then closed around it, then up, then over the target, then down, then open. Each phase has a clear geometric goal and a clear transition condition. So why not just write it down?
+A pick-and-place task decomposes naturally into phases. The gripper has to be above the cube, then on it, then closed around it, then up, then over the target, then down, then open. Each phase has a clear geometric goal and a clear transition condition. So why not write it down?
 
 This section does exactly that. You build a state-machine controller that walks through seven phases in order. You watch it solve the task in nominal conditions, watch it fail in interesting ones, and read off the lesson: even a thoughtful heuristic plateaus far below expert performance. Learned policies pick up where rules stop.
 
@@ -167,6 +167,8 @@ Two things make this a fair baseline rather than a strawman. The phases are hone
 ### 2.2.2 Implementation
 
 Listing 2.3 is the type-along listing for this section. It implements `scripted_policy(obs, state)` as a pure function: given the current observation and the caller's state dict, it returns a 7-dimensional action and mutates `state` to advance the phase if appropriate. The caller resets the state with `state = {"phase": "approach"}` at the start of each episode.
+
+> **NOTE — Two simplifications worth flagging up front.** Listing 2.3 reads the observation with shorthand keys (`obs["agent_pos"]`, `obs["cube_pos"]`, `obs["target_pos"]`) where the actual ManiSkill3 dictionary is nested as `obs["agent"]["qpos"]`, `obs["extra"]["cube_pose"]`, and `obs["extra"]["target_pose"]`. The companion notebook unpacks the nested keys into the shorthand names in the cell above the listing so the prose stays readable. Listing 2.3 also uses a deliberately crude Cartesian-to-joint mapping: it treats the first three components of the joint-delta vector as Cartesian (x, y, z) displacements and pads the remaining three with zeros. A production scripted policy would compute proper inverse kinematics; the version here trades correctness for clarity and still solves the task often enough to demonstrate the heuristic plateau.
 
 **Listing 2.3 A multi-phase scripted pick-and-place policy.**
 
@@ -219,18 +221,18 @@ def scripted_policy(obs, state):
         gripper = -1.0                                   #E
 
     direction = goal - ee_pos
-    joint_delta = np.clip(direction * 5.0, -1.0, 1.0)   #F
-    return np.concatenate([joint_delta,
+    cartesian_delta = np.clip(direction * 5.0, -1.0, 1.0)  #F
+    return np.concatenate([cartesian_delta,
                            np.zeros(3),
                            [gripper]]).astype(np.float32)
 ```
 
-#A The seven phases in execution order.
-#B The end-effector position is the last three components of the joint state in this environment's convention.
+#A The seven phases in execution order. *Transport* stops at altitude above the target; *place* handles the final descent. Splitting them lets each transition use an independent condition (horizontal distance for transport, vertical distance for place).
+#B The end-effector position lives in the last three slots of the shorthand `agent_pos` vector (unpacked from `obs["agent"]["qpos"]` in the notebook cell above this one).
 #C *Approach* hovers 10 cm above the cube with the gripper open.
 #D *Grasp* holds position and closes the gripper for several frames so contact stabilizes before lifting.
 #E *Release* opens the gripper at the target.
-#F Convert the desired Cartesian motion into a joint-space action, clipped to the environment's range.
+#F Pack the desired Cartesian motion into the first three slots of the action; the remaining three joints get zero, and the gripper occupies slot seven. The result is a `(7,)` action that matches `env.action_space`.
 
 Listing 2.4 wraps this into the same episode-loop pattern as the random-agent eval.
 
@@ -269,7 +271,7 @@ Anywhere from roughly 30% to 70% is normal. The exact rate depends on which cube
 
 The scripted policy succeeds when nothing surprises it. It fails in three predictable ways. *Grasp timing*: the gripper closes a frame too early or too late, the cube slips, and the *lift* phase ends with nothing to lift. *Workspace edges*: the cube spawns near the reachable boundary, the arm cannot fully orient over it, and the *descend* phase tries to drive through a joint limit. *Contact perturbations*: the descent pushes the cube as it touches, the cube rolls out from under the gripper, and the controller has no way to notice or react.
 
-All three failures share a structure. The policy is open-loop *within* each phase: once it has committed to *descend*, it cannot abort. A learned policy can be conditional on what the cameras actually see in the moment, including the state of the cube as it is being touched. That conditionality is precisely what behavior cloning (chapter 3) and the policies that follow are built to capture.
+All three failures share a structure. The policy is *open-loop* within each phase: it commits to a fixed plan without reacting to sensor feedback mid-phase. Once the *descend* phase starts, the controller will keep descending whether or not the cube is still where it expects. A learned policy can be conditional on what the cameras actually see in the moment, including the state of the cube as it is being touched. That conditionality is what behavior cloning learns to replicate from the expert demonstrations in chapter 3.
 
 > **WHY NOT JUST ENGINEER A BETTER HEURISTIC?** You could add error recovery, force feedback, retry-on-miss, and a finer phase decomposition. Every improvement is a few lines of code. The problem is the long tail: each new edge case (different cube color, novel target position, occlusion, contact perturbation) compounds the complexity, and the engineering effort grows faster than the success rate. This is the long-tail argument from chapter 1 in miniature. Heuristics plateau; learned policies keep improving with more data.
 
@@ -281,7 +283,7 @@ The scripted policy shows what one person's intuition can achieve in an afternoo
 
 Expert demonstrations are recorded teleoperation. A human operator drives a real or simulated SO-100 through dozens of pick-and-place episodes, and at every control timestep the system saves the observation the operator saw and the command they issued. The result is a stream of (observation, action) pairs grouped into episodes. With enough such pairs, a learned policy can imitate the distribution they came from.
 
-The LeRobot project, maintained by Hugging Face, defines a standard format for this kind of data and hosts hundreds of datasets on the Hugging Face Hub. This section loads an SO-100 pick-and-place dataset, walks through its feature schema, and introduces the `delta_timestamps` mechanism that chapter 4 will use for action chunking.
+The LeRobot project, maintained by Hugging Face, defines a standard format for this kind of data and hosts hundreds of datasets on the Hugging Face Hub, a public model and dataset registry. This section loads an SO-100 pick-and-place dataset, walks through its feature schema, and introduces the `delta_timestamps` mechanism that chapter 4 uses for action chunking.
 
 ### 2.3.1 Loading from the Hub
 
@@ -370,17 +372,17 @@ Table 2.2 collects the schema for reference.
 
 ### 2.3.3 Understanding delta_timestamps
 
-For the listings above, each call to `dataset[i]` returns one frame. That is enough for plain behavior cloning, where the model predicts the action at time `t` from the observation at time `t`. But several later chapters need *temporal context*. Chapter 4's action chunking predicts a short sequence of future actions instead of a single one. Chapter 5's flow matching conditions on the recent state history. Both need to ask for "the observation at this frame plus the previous one" or "the action at this frame plus the next two."
+For the listings above, each call to `dataset[i]` returns one frame. That is enough for plain behavior cloning, where the model predicts the action at time `t` from the observation at time `t`. Later chapters need *temporal context*: chapter 4's action chunking predicts a short sequence of future actions instead of a single one. Both need to ask for "the action at this frame plus the next two" or "the observation at this frame plus the previous one."
 
 LeRobot exposes this through a `delta_timestamps` argument on the dataset constructor. You pass a dictionary mapping feature names to lists of time offsets in seconds. For each key in that dictionary, the dataset stacks the requested frames into a single tensor along a new leading dimension.
 
-> **WHAT IS delta_timestamps?** Setting `delta_timestamps={"action": [0.0, 0.04, 0.08]}` returns the current action plus the next two future actions, stacked into shape `(3, 7)`. The numeric offsets are in seconds; for a 25 Hz dataset, 0.04 s is one frame. This enables action chunking, predicting a short sequence of future actions instead of one at a time, and it is the data-side foundation for the ACT and diffusion-policy heads in chapters 4 and 5.
+> **WHAT IS delta_timestamps?** Setting `delta_timestamps={"action": [0.0, 0.05, 0.10]}` returns the current action plus the next two future actions, stacked into shape `(3, 7)`. The numeric offsets are in seconds; at the SO-100 sim's 20 Hz control rate, 0.05 s is one frame. This enables action chunking, predicting a short sequence of future actions instead of one at a time, and it is the data-side foundation for the ACT and diffusion-policy heads in chapters 4 and 5.
 
-You do not need to use `delta_timestamps` for chapter 2's work. The DataLoader you build in §2.5 yields single-frame batches, and chapter 3's first model trains on those. The chapter that *starts* using it is chapter 4, and the only thing you need to remember between here and there is that the mechanism exists.
+You do not need to use `delta_timestamps` for the work that follows. The DataLoader built in §2.5 yields single-frame batches, and chapter 3's first model trains on those. Action chunking in chapter 4 is where `delta_timestamps` first appears in a training loop. For now, knowing the mechanism exists is enough.
 
 > **EXERCISE 2.3: Single-episode statistics.** Compute the mean and standard deviation of `observation.state` across the frames of a single episode, then compare to the statistics across the whole dataset. How large is the discrepancy on the joint dimensions? On the gripper? *Tip: this is the basic argument for normalizing on the dataset, not per-batch. It also foreshadows why a tiny fine-tuning dataset can destabilize a model that was trained with population-level statistics.*
 
-Numbers in a table tell you the data's shape. Plots and rendered frames tell you what success actually looks like.
+Numbers in a table tell you the data's shape. Plots and rendered frames tell you what success looks like.
 
 ## 2.4 Visualizing the data
 
@@ -390,11 +392,9 @@ This section produces three visualizations using provided utilities from `ch02.v
 
 ### 2.4.1 Rendering expert episodes
 
-The first thing to look at is what one successful trajectory actually looks like. `render_keyframes` samples evenly spaced frames from one episode and tiles the top-down and wrist-camera views into a two-row figure. The top row shows the macroscopic motion of the arm; the bottom row shows the contact-level detail of the grasp.
+The first thing to look at is what one successful trajectory looks like. `render_keyframes` samples evenly spaced frames from one episode and tiles the top-down and wrist-camera views into a two-row figure. The top row shows the macroscopic motion of the arm; the bottom row shows the contact-level detail of the grasp. Listing 2.7 is a provided utility imported from `ch02.viz`; the call site is shown here, and the implementation lives in the chapter's source package for transparency.
 
 **Listing 2.7 Rendering expert keyframes from both camera views.**
-
-Listing 2.7 is a provided utility. You import it from `ch02.viz` rather than retyping it; the implementation is shown here so you understand what the helper does.
 
 ```python
 from ch02.viz import render_keyframes
@@ -411,11 +411,9 @@ What you see in figure 2.4 is one successful pick-and-place. The arm approaches 
 
 ### 2.4.2 Action distributions
 
-A single trajectory tells you what success looks like. The *distribution* of actions across many trajectories tells you what kind of patterns a policy has to capture. Listing 2.8 collects actions from the expert dataset, the scripted policy, and the random agent, then overlays per-dimension histograms.
+A single trajectory tells you what success looks like. The *distribution* of actions across many trajectories tells you what kind of patterns a policy has to capture. The `plot_action_distributions` helper in `ch02.viz` overlays per-dimension histograms from the three action sources. Listing 2.8 shows the call site; the histogram block beneath collects actions from the expert dataset (type-along), runs the scripted policy and random agent, and hands all three to the plotting utility.
 
-**Listing 2.8 Per-joint action distributions: expert vs. scripted vs. random.**
-
-Listing 2.8 is a provided utility, imported from `ch02.viz`. The implementation collects actions from each source and plots them.
+**Listing 2.8 Per-joint action distributions, expert vs. scripted vs. random.**
 
 ```python
 from ch02.viz import collect_actions, plot_action_distributions
@@ -429,15 +427,15 @@ fig = plot_action_distributions(expert, scripted, random_)
 fig.savefig("figures/figure_2_5_action_distributions.png", dpi=300)
 ```
 
-![Figure 2.5 Action distributions for each of the seven action dimensions. Expert actions show structured, multi-modal clusters that reflect different grasp strategies. The scripted policy produces a simpler, lower-variance pattern. Random actions are uniform across the range. The gap between the scripted and expert histograms is what a learned policy must close.](figures/figure_2_5_action_distributions.png)
+![Figure 2.5 Action distributions for each of the seven action dimensions. Expert actions show structured, multimodal clusters that reflect different grasp strategies. The scripted policy produces a simpler, lower-variance pattern. Random actions are uniform across the range. The gap between the scripted and expert histograms is what a learned policy must close.](figures/figure_2_5_action_distributions.png)
 
-The expert histograms have *structure*. Several of them are multi-modal: one cluster of joint values for cubes that spawn on the left side of the workspace, another for cubes on the right. The gripper histogram is sharply bimodal, with most mass at fully open (`-1`) and fully closed (`+1`) and very little in between, which is what you would expect from a discrete decision masked by continuous-valued reporting. The scripted distributions are simpler: each joint mostly clusters around the values the heuristic uses for its phases, and the gripper is bimodal but with sharper edges. The random distributions are flat by construction.
+The expert histograms have *structure*. Several of them are *multimodal* in the statistical sense (multiple peaks): one cluster of joint values for cubes that spawn on the left side of the workspace, another for cubes on the right. The gripper histogram is sharply bimodal, with most mass at fully open (`-1`) and fully closed (`+1`) and almost nothing in between, which is what you would expect from a discrete decision masked by continuous-valued reporting. The scripted distributions are simpler: each joint mostly clusters around the values the heuristic uses for its phases, and the gripper is bimodal but with sharper edges. The random distributions are flat by construction.
 
-The gap between the scripted and expert histograms is the gap a learned policy is being asked to close. It is not just "better numbers"; it is a *different shape* of distribution. The expert spreads probability mass across many trajectory styles that all succeed. The scripted policy commits to one. A model that can represent multi-modal distributions (chapters 4 and 5 both can, in different ways) is the one that can match the expert.
+The gap between the scripted and expert histograms is the gap a learned policy is being asked to close. It is not just "better numbers"; it is a *different shape* of distribution. The expert spreads probability mass across many trajectory styles that all succeed. The scripted policy commits to one. A model that can represent multimodal distributions (chapters 4 and 5 both can, in different ways) is the one that can match the expert.
 
 ### 2.4.3 Expert trajectories
 
-The third view is trajectory-level. Listing 2.9 below uses `plot_joint_trajectories` (also provided in `ch02.viz`) to plot joint angles over time for several episodes, overlaid on the same axes.
+The third view is trajectory-level. The `plot_joint_trajectories` helper (also provided in `ch02.viz`) plots joint angles over time for several episodes, overlaid on the same axes:
 
 ```python
 from ch02.viz import plot_joint_trajectories
@@ -462,7 +460,7 @@ This section's deliverable is `make_pickplace_dataloader`, the API contract chap
 
 Neural networks train faster and more stably when inputs are zero-centered and unit-scaled. The mathematical reason is that gradient descent updates weights in proportion to the magnitudes of the inputs that flow into them; when one feature ranges over a few radians and another ranges over 255 pixel intensities, the gradient is dominated by the larger-magnitude feature regardless of how informative it is. Normalization removes that asymmetry.
 
-The choice of which normalization to apply is feature-dependent, not network-dependent. Joint positions and recorded actions live on roughly Gaussian distributions; z-score normalization (subtract the mean, divide by the standard deviation) makes them zero-mean and unit-variance. Image pixels live in the bounded integer range `[0, 255]`; min-max scaling (divide by 255) makes them zero-mean and unit-variance enough for the vision encoders in chapter 3. The book uses both, with z-score for state and actions, and `x / 255` for images. The choice is consistent across every chapter.
+The choice of which normalization to apply is feature-dependent, not network-dependent. Joint positions and recorded actions live on roughly Gaussian distributions; z-score normalization (subtract the mean, divide by the standard deviation) makes them zero-mean and unit-variance. Image pixels live in the bounded integer range `[0, 255]`; min-max scaling (`x / 255`) maps them to the `[0, 1]` range that the vision encoders in chapter 3 expect. The book uses both, with z-score for state and actions, and `x / 255` for images. The choice is consistent across every chapter.
 
 > **Z-SCORE vs. MIN-MAX NORMALIZATION.** Z-score normalization is `(x - mean) / std`. It centers data at zero and scales by spread. It is the right choice when features are roughly Gaussian, as joint angles and recorded teleop actions tend to be. Min-max normalization is `(x - min) / (max - min)`. It scales data to `[0, 1]`. It is the right choice when bounded outputs are needed, as with image pixels handed to a vision encoder that expects `[0, 1]`. The book uses z-score for state and actions and `x / 255` for images.
 
@@ -501,15 +499,15 @@ stats = compute_stats(dataset)
 
 #A Collect every state and action across the entire dataset to compute exact statistics.
 
-The function is deliberately simple. It pulls every frame into memory, stacks them, and calls `.mean(0)`, `.std(0)`, `.min(0)`, `.max(0)` along the batch dimension. For an 18k-frame dataset, the memory footprint is a few megabytes; for million-frame datasets, you would batch the computation in a streaming pass. Chapter 2's dataset is small enough that the simple version is the right one.
+The function is deliberately simple. It pulls every frame into memory, stacks them, and calls `.mean(0)`, `.std(0)`, `.min(0)`, `.max(0)` along the batch dimension. For an 18k-frame dataset, the memory footprint is a few megabytes; for million-frame datasets, you would batch the computation in a streaming pass. The dataset here is small enough that the in-memory version is the right one.
 
-> **Why both min/max and mean/std?** The book uses mean/std for actual normalization. The min/max values are kept around as guardrails: chapter 7's RL chapter clips predicted actions to the empirical action range before sending them to the simulator, and several downstream debugging tools compare predictions against the min/max envelope to catch obvious drift. Stashing both costs nothing and saves later refactors.
+> **WHY BOTH MIN/MAX AND MEAN/STD?** The book uses mean/std for normalization. The min/max values are kept around as guardrails: the RL chapter clips predicted actions to the empirical action range before sending them to the simulator, and several downstream debugging tools compare predictions against the min/max envelope to catch obvious drift. Stashing both costs nothing and saves later refactors.
 
-LeRobot also ships precomputed statistics for every dataset in `meta/stats.json`. You can load them with `LeRobotDataset(..., load_stats=True)` and skip the recomputation. For chapter 2, you compute them yourself once so you understand what is in the dictionary; from chapter 3 onward, you reuse LeRobot's cached values.
+LeRobot also ships precomputed statistics for every dataset in a `meta/stats.json` file inside the dataset directory. The LeRobot 0.5.1 API exposes them via the dataset's `stats` attribute after construction. Computing the stats yourself here once means the dictionary you get back is no longer a black box; from chapter 3 onward, you can reuse the cached values.
 
 ### 2.5.3 The normalize and denormalize functions
 
-`normalize` and `denormalize` are short, but they are the most-used functions in the rest of the book. Every model input that is not an image goes through `normalize` before training, and every action output that is not a token goes through `denormalize` before `env.step()`. Listing 2.10 is the type-along version. Pay attention to the round-trip assertion; that test catches more bugs than every fancy logging system put together.
+`normalize` and `denormalize` are short, but they are the most-used functions in the rest of the book. Every model input that is not an image goes through `normalize` before training, and every action output that is not a token goes through `denormalize` before `env.step()`. Listing 2.10 is the type-along version. Pay attention to the round-trip assertion; that test catches more bugs than any post-hoc logging system.
 
 **Listing 2.10 Normalize and denormalize functions.**
 
@@ -597,13 +595,13 @@ Each state-mean component should sit within roughly ±0.1 of zero (within-batch 
 
 ![Figure 2.8 The complete data pipeline built across sections 2.1 to 2.5. Expert demonstrations are loaded from the Hub, normalization statistics are computed once, and a DataLoader applies the right normalization to each feature type at batch time. `make_pickplace_dataloader` encapsulates the entire flow as the API contract for chapter 3.](figures/figure_2_8_data_pipeline.png)
 
-> **THE CHAPTER 3 CONTRACT.** Chapter 3 imports `make_pickplace_dataloader`, `normalize`, and `denormalize` directly from `ch02`. It expects batches with keys `observation.state` (normalized), `observation.images.top` and `observation.images.wrist` (in `[0, 1]`), and `action` (normalized). After the model predicts a normalized action, `denormalize` converts it back to environment scale before `env.step()` runs. Treat the function signature `make_pickplace_dataloader(dataset_id, batch_size, shuffle)` as frozen; renaming or re-ordering arguments breaks every downstream chapter.
+> **THE CHAPTER 3 CONTRACT.** Chapter 3 imports `make_pickplace_dataloader`, `normalize`, and `denormalize` directly from `ch02`. The expected call site is `loader, stats = make_pickplace_dataloader(dataset_id, batch_size, shuffle)`. Each batch is a dictionary with keys `observation.state` (normalized), `observation.images.top` and `observation.images.wrist` (in `[0, 1]`), and `action` (normalized). After the model predicts a normalized action, `denormalize` converts it back to environment scale before `env.step()` runs. Treat the function signature as frozen; renaming or re-ordering arguments breaks every downstream chapter.
 
 > **EXERCISE 2.4: Min-max normalization on actions.** Replace `compute_stats` and `normalize` with min-max scaling (`(x - min) / (max - min)`) for `observation.state` and `action` only. Verify the round trip still works to floating-point precision. Then draw one batch and compare per-dimension batch means against z-score: which is closer to zero? Why does that matter for downstream learning? *Tip: think about how the loss gradient flows through a denormalized action prediction at the start of training, before the model has learned anything.*
 
 ### 2.5.5 Pipeline performance across hardware
 
-A reasonable concern at this point is *will this run on my hardware*. The honest answer for chapter 2 is yes, comfortably, on every platform we care about. Table 2.3 calibrates expectations.
+A reasonable concern here is *will this run on my hardware*. The honest answer is yes, comfortably, on the platforms covered in table 2.3. Mac MPS and CPU-only paths are not benchmarked below but are documented in the companion repo README.
 
 **Table 2.3 Chapter 2 pipeline timings across hardware.**
 
@@ -615,7 +613,7 @@ A reasonable concern at this point is *will this run on my hardware*. The honest
 | Random-agent rollout (10 episodes) | ~20–40 s | ~10–15 s | ~10–15 s |
 | Scripted-agent rollout (10 episodes) | ~30–60 s | ~15–25 s | ~15–25 s |
 
-Numbers are wall-clock and approximate, and the network-bound dataset download dominates the first-run experience on every platform. Subsequent runs in the same kernel session have no setup overhead because the dataset and the simulator stay loaded in memory. The Vulkan setup on Colab is a one-time ~20–30 s cell at the top of the notebook. No training happens here, so GPU memory pressure is not yet a concern; chapter 3 is where that conversation starts.
+Numbers are wall-clock approximations measured with `lerobot 0.5.1` and `mani-skill 3.0.1`; rerun on first install and after any major dependency update. The network-bound dataset download dominates the first-run experience on every platform. Subsequent runs in the same kernel session have no setup overhead because the dataset and simulator stay loaded in memory. The Vulkan setup on Colab is a one-time ~20–30 s cell at the top of the notebook. No training happens here, so GPU memory pressure is not yet a concern; chapter 3 is where that conversation starts.
 
 ## 2.6 Summary
 
@@ -623,9 +621,9 @@ The work above built the simulation and data foundation that every later chapter
 
 - `PickCubeSO100-v1` is a single-object pick-and-place task on a 6-DOF arm with a parallel-jaw gripper, served by ManiSkill3 over SAPIEN. It is the carrier task and the carrier embodiment for the rest of the book.
 - The Gymnasium API provides a universal interface: `reset()` returns an initial observation, `step(action)` returns the next observation, a scalar reward, and termination flags. Every environment we work with, in simulation and on hardware, exposes this interface.
-- A random agent on a 6-DOF arm essentially never succeeds. A multi-phase scripted policy (approach, descend, grasp, lift, transport, place, release) raises the success rate but plateaus far below expert performance because it is open-loop within each phase and cannot recover from misalignment or contact perturbations.
+- A random agent on a 6-DOF arm almost never succeeds. A multi-phase scripted policy (approach, descend, grasp, lift, transport, place, release) raises the success rate but plateaus far below expert performance because it is open-loop within each phase and cannot recover from misalignment or contact perturbations.
 - Expert demonstrations from teleoperation are stored in the LeRobot dataset format on the Hugging Face Hub. Each frame includes the joint state, two camera views, the recorded action, and trajectory metadata. The `delta_timestamps` mechanism enables requesting data at relative time offsets and is the data-side foundation for action chunking in chapters 4 and 5.
-- Visualizing expert action distributions per-joint reveals structured, multi-modal patterns that neither random sampling nor a hand-coded heuristic can reproduce. Visualizing expert joint trajectories shows that successful policies must be conditional on the current observation, not memorized sequences.
+- Visualizing expert action distributions per-joint reveals structured, multimodal patterns that neither random sampling nor a hand-coded heuristic can reproduce. Visualizing expert joint trajectories shows that successful policies must be conditional on the current observation, not memorized sequences.
 - Neural networks need normalized inputs. Z-score normalization is applied to state and action; images are scaled to `[0, 1]`. Denormalization recovers environment-scale actions for use with `env.step()`. The round-trip assertion in listing 2.10 catches the entire easy class of normalization bug.
 - The chapter's primary export is `make_pickplace_dataloader(dataset_id, batch_size, shuffle)`, parameterized on `dataset_id` so later chapters can swap in custom datasets without changing the interface. Together with `normalize` and `denormalize`, it is the frozen data contract between chapter 2 and chapter 3.
 - Chapter 3 picks up exactly where the data pipeline ends: the same DataLoader, the same normalization conventions, the same SO-100 embodiment. It adds the piece deliberately left out here, a model that learns to predict actions from observations, using a vision-language backbone and the first incarnation of a generative robot policy.
@@ -647,6 +645,6 @@ LeRobot dataset format
 
 Pick-and-place as a learning benchmark
 
-- Florence et al. (CoRL 2021), *Implicit Behavioral Cloning*. arXiv:2109.00137. Introduces the PushT task and an early energy-based BC formulation. PushT is the canonical alternative to pick-and-place as a starter task; the trade-offs are discussed at the top of §2.1.
+- Florence et al. (CoRL 2021), *Implicit Behavioral Cloning*. arXiv:2109.00137. Introduces the PushT task and an early energy-based BC formulation. PushT is the canonical alternative to pick-and-place as a starter task; we chose pick-and-place because it shares an embodiment, action space, and observation pipeline with the eventual hardware deployment chapters.
 - Zhao et al. (RSS 2023), *Action Chunking with Transformers* (ACT). arXiv:2304.13705. The `delta_timestamps` mechanism in §2.3 is the data-side enabler for ACT, which chapter 4 builds.
-- Chi et al. (RSS 2023), *Diffusion Policy*. arXiv:2303.04137. Chapter 5's continuous-action approach uses the same normalized DataLoader you built here.
+- Chi et al. (RSS 2023), *Diffusion Policy*. arXiv:2303.04137. The continuous-action approach in chapter 5 uses the same normalized DataLoader you built here.
