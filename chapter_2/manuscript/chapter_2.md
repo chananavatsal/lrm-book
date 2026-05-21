@@ -4,11 +4,11 @@
 
 This chapter covers
 
-- Setting up the SO-101 simulation environment using ManiSkill3 and the Gymnasium interface
-- Observations, actions, episodes, and rewards for a 6-DOF arm with a parallel-jaw gripper
-- Writing a scripted pick-and-place policy as an explicit state machine, and observing its failure modes
-- Loading, inspecting, and visualizing expert demonstration data from the LeRobot Hub
-- Building a normalized DataLoader that becomes the data contract for chapter 3
+- Setting up the SO-101 simulator with ManiSkill3
+- Observations, actions, episodes, and rewards
+- A scripted state-machine policy and its failure modes
+- Expert demonstrations from the LeRobot Hub
+- A normalized DataLoader for chapter 3
 
 A robot policy is only as good as the data that trains it, and only as transferable as the embodiment that produces that data. Before you write a single line of model code, you need three things: a simulated arm to act in, demonstrations from that arm to learn from, and a pipeline that feeds both into training. The sections that follow build all three, on the embodiment you will use across every remaining chapter.
 
@@ -56,13 +56,13 @@ print(f"Action space: {env.action_space}")      #G
 #D Return RGB camera observations. Alternatives are `"state"` for vector-only, `"rgbd"` for RGB plus depth, and `"state_dict"` for vector observations broken out by source.
 #E Joint-space delta actions in the same control mode the SO-100 hardware uses. The sim-to-real gap discussed in the callout below is small but real.
 #F `reset` returns the initial observation dictionary and an info dictionary.
-#G The action space is `Box(7,)`: six joint deltas (one per arm joint) plus one gripper command, all in the range `[-1, 1]`.
+#G The action space is `Box(6,)`: five joint deltas for the arm plus one gripper command, all in the range `[-1, 1]`. The SO-100/SO-101 is a 5-DOF arm with a parallel-jaw gripper, six actuators total.
 
 Running this prints the observation keys and the action space:
 
 ```
 Observation keys: ['agent', 'extra', 'sensor_data']
-Action space: Box(-1.0, 1.0, (7,), float32)
+Action space: Box(-1.0, 1.0, (6,), float32)
 ```
 
 Exact key names depend on the ManiSkill version. Verify them with `print(obs)` if anything downstream complains about a missing key. The `agent` group contains the arm's self-awareness of its own state, called *proprioception*: joint angles, joint velocities, and gripper state. The `extra` group contains task-level observations: the cube pose, the target pose, and the end-effector pose (the position and orientation of the gripper assembly at the tip of the arm). The `sensor_data` group contains the camera images.
@@ -77,9 +77,9 @@ A Gymnasium environment is a state machine with two operations. You call `reset(
 
 Five concepts make up the interface:
 
-An *observation* is what the agent sees on a given timestep. For PickCubeSO100, an observation is a dictionary containing joint positions and velocities for the six arm joints, the gripper state, the cube and target poses, and two RGB camera images: a top-down third-person view and a wrist-mounted view that moves with the gripper.
+An *observation* is what the agent sees on a given timestep. For PickCubeSO100, an observation is a dictionary containing joint positions and velocities for the five arm joints, the gripper state, the cube and target poses, and two RGB camera images: an overhead third-person view and a side-mounted view of the workspace.
 
-An *action* is what the agent does. PickCubeSO100 uses a 7-dimensional continuous action: six joint position deltas plus one gripper command, each in the range `[-1, 1]`. A joint delta of zero means "hold position." A positive gripper command closes the gripper; a negative gripper command opens it.
+An *action* is what the agent does. PickCubeSO100 uses a 6-dimensional continuous action: five joint position deltas for the arm plus one gripper command, each in the range `[-1, 1]`. A joint delta of zero means "hold position." A positive gripper command closes the gripper; a negative gripper command opens it.
 
 A *step* is a single (observation, action, reward, next_observation) transition, executed at the simulator's control frequency. For this environment the control frequency is 20 Hz, so one step is 50 milliseconds of simulated time.
 
@@ -95,13 +95,13 @@ Table 2.1 summarizes the observation and action shapes for quick reference.
 
 | Component | Shape | Type | Description |
 |-----------|-------|------|-------------|
-| `agent.qpos` | (6,) | float32 | Joint positions in radians |
-| `agent.qvel` | (6,) | float32 | Joint velocities |
+| `agent.qpos` | (6,) | float32 | Joint positions in radians (5 arm + gripper) |
+| `agent.qvel` | (6,) | float32 | Joint velocities (5 arm + gripper) |
 | `extra.cube_pose` | (7,) | float32 | Cube pose: (x, y, z, qw, qx, qy, qz) |
 | `extra.target_pose` | (7,) | float32 | Target pose, same convention |
 | `sensor_data.base_camera.rgb` | (224, 224, 3) | uint8 | Top-down RGB camera |
 | `sensor_data.hand_camera.rgb` | (224, 224, 3) | uint8 | Wrist-mounted RGB camera |
-| Action | (7,) | float32 | Six joint position deltas plus gripper command |
+| Action | (6,) | float32 | Five joint position deltas plus gripper command |
 
 > **WHY SO-100 IN SIM, SO-101 ON HARDWARE?** ManiSkill3 ships the SO-100 as a first-class robot in `mani_skill/agents/robots/so100/`. SO-101 is the newer revision with slightly different servos and tuning. The observation and action interfaces are identical, so policy training is unaffected. The residual kinematic gap is real but small, and isolating it to a single sim-to-real chapter (chapter 9) is cleaner pedagogy than pretending it does not exist. This is the canonical sim-to-real problem in miniature, and chapter 9 is built around it.
 
@@ -136,7 +136,7 @@ print(f"Random agent: success={success_rate:.0%} "
       f"return={mean_return:.2f}")                       #C
 ```
 
-#A Sample uniformly from the 7-DOF continuous action space.
+#A Sample uniformly from the 6-DOF continuous action space.
 #B The environment reports success when the cube has reached the target zone for several consecutive steps.
 #C Expect a near-zero success rate. Flailing the arm rarely grasps anything, much less transports it.
 
@@ -148,7 +148,7 @@ Random agent: success=0% return=-0.42
 
 Numbers vary by seed; what matters is that the success rate is effectively zero and the return is negative. The return is negative because the shaped reward penalizes distance from the cube and from the target, and the random agent spends most of its time far from both. A negative return is informative: it tells you the reward signal is dense, not sparse, which matters for the scripted policy in §2.2 and the RL training in chapter 7.
 
-> **EXERCISE 2.1: Joint-space vs. end-effector-space control.** Re-create the environment with `control_mode="pd_ee_delta_pose"` instead of the default joint-space mode and re-run the random agent. The action space changes from `Box(6,)` to a Cartesian delta pose plus gripper. Do random rollouts succeed any more often? Why or why not? *Tip: end-effector control hides one form of difficulty (joint coordination) while exposing another (workspace boundaries). The random agent benefits from neither.*
+> **EXERCISE 2.1: Joint-space vs. end-effector-space control.** Re-create the environment with `control_mode="pd_ee_delta_pose"` instead of the default joint-space mode and re-run the random agent. The action space changes from a per-joint delta vector to a Cartesian end-effector delta plus gripper. Do random rollouts succeed any more often? Why or why not? *Tip: end-effector control hides one form of difficulty (joint coordination) while exposing another (workspace boundaries). The random agent benefits from neither.*
 
 A random agent flailing the arm produces a 0% success rate. That is the floor. The next obvious move is to write a smart rule, and watching even a *smart* rule struggle is what motivates the rest of the book.
 
@@ -166,7 +166,7 @@ Two things make this a fair baseline rather than a strawman. The phases are hone
 
 ### 2.2.2 Implementation
 
-Listing 2.3 is the type-along listing for this section. It implements `scripted_policy(obs, state)` as a pure function: given the current observation and the caller's state dict, it returns a 7-dimensional action and mutates `state` to advance the phase if appropriate. The caller resets the state with `state = {"phase": "approach"}` at the start of each episode.
+Listing 2.3 is the type-along listing for this section. It implements `scripted_policy(obs, state)` as a pure function: given the current observation and the caller's state dict, it returns a `(6,)` action and mutates `state` to advance the phase if appropriate. The caller resets the state with `state = {"phase": "approach"}` at the start of each episode.
 
 > **NOTE — Two simplifications worth flagging up front.** Listing 2.3 reads the observation with shorthand keys (`obs["agent_pos"]`, `obs["cube_pos"]`, `obs["target_pos"]`) where the actual ManiSkill3 dictionary is nested as `obs["agent"]["qpos"]`, `obs["extra"]["cube_pose"]`, and `obs["extra"]["target_pose"]`. The companion notebook unpacks the nested keys into the shorthand names in the cell above the listing so the prose stays readable. Listing 2.3 also uses a deliberately crude Cartesian-to-joint mapping: it treats the first three components of the joint-delta vector as Cartesian (x, y, z) displacements and pads the remaining three with zeros. A production scripted policy would compute proper inverse kinematics; the version here trades correctness for clarity and still solves the task often enough to demonstrate the heuristic plateau.
 
@@ -223,7 +223,7 @@ def scripted_policy(obs, state):
     direction = goal - ee_pos
     cartesian_delta = np.clip(direction * 5.0, -1.0, 1.0)  #F
     return np.concatenate([cartesian_delta,
-                           np.zeros(3),
+                           np.zeros(2),
                            [gripper]]).astype(np.float32)
 ```
 
@@ -232,7 +232,7 @@ def scripted_policy(obs, state):
 #C *Approach* hovers 10 cm above the cube with the gripper open.
 #D *Grasp* holds position and closes the gripper for several frames so contact stabilizes before lifting.
 #E *Release* opens the gripper at the target.
-#F Pack the desired Cartesian motion into the first three slots of the action; the remaining three joints get zero, and the gripper occupies slot seven. The result is a `(7,)` action that matches `env.action_space`.
+#F Pack the desired Cartesian motion into the first three slots of the action; the remaining two arm joints get zero, and the gripper occupies the sixth slot. The result is a `(6,)` action that matches `env.action_space`.
 
 Listing 2.4 wraps this into the same episode-loop pattern as the random-agent eval.
 
@@ -309,10 +309,10 @@ print(f"Features: {list(dataset.features.keys())}")     #C
 Running this prints something like:
 
 ```
-Total frames: 18421
+Total frames: 11939
 Episodes: 50
-Features: ['observation.state', 'observation.images.top',
-           'observation.images.wrist', 'action', 'episode_index',
+Features: ['observation.state', 'observation.images.up',
+           'observation.images.side', 'action', 'episode_index',
            'frame_index', 'timestamp', 'next.done']
 ```
 
@@ -343,18 +343,18 @@ print(f"\nEpisode 0 length: {len(ep_indices)} steps")
 The output:
 
 ```
-  observation.state: shape=torch.Size([7]), dtype=torch.float32
-  observation.images.top: shape=torch.Size([3, 224, 224]), dtype=torch.uint8
-  observation.images.wrist: shape=torch.Size([3, 224, 224]), dtype=torch.uint8
-  action: shape=torch.Size([7]), dtype=torch.float32
+  observation.state: shape=torch.Size([6]), dtype=torch.float32
+  observation.images.up: shape=torch.Size([3, 480, 640]), dtype=torch.uint8
+  observation.images.side: shape=torch.Size([3, 480, 640]), dtype=torch.uint8
+  action: shape=torch.Size([6]), dtype=torch.float32
   episode_index: 0
   frame_index: 0
   timestamp: 0.0
 
-Episode 0 length: 348 steps
+Episode 0 length: 239 steps
 ```
 
-Two things are worth noticing. Images are stored channel-first, as `(C, H, W)` tensors. This is the PyTorch convention; matplotlib wants channel-last, so you have to call `.permute(1, 2, 0)` before plotting. Episode lengths vary, typically between 200 and 500 frames, because teleoperators complete the task at different speeds depending on the cube position.
+Three things are worth noticing. Images are stored channel-first as `(C, H, W)` tensors at the recording resolution of 480 × 640; this is the PyTorch convention, so matplotlib needs `.permute(1, 2, 0)` before plotting. The vision encoders in chapter 3 resize images down to 224 × 224 internally — chapter 2 keeps the raw resolution. State and action are both `(6,)`: five arm joint values plus one gripper value. Episode lengths vary, typically between roughly 150 and 350 frames, because teleoperators complete the task at different speeds depending on the cube position.
 
 Table 2.2 collects the schema for reference.
 
@@ -362,10 +362,10 @@ Table 2.2 collects the schema for reference.
 
 | Feature | Shape | Type | Description |
 |---------|-------|------|-------------|
-| `observation.state` | (7,) | float32 | Six joint positions plus gripper state |
-| `observation.images.top` | (3, 224, 224) | uint8 | Top-down third-person camera |
-| `observation.images.wrist` | (3, 224, 224) | uint8 | Wrist-mounted camera |
-| `action` | (7,) | float32 | Recorded teleoperation command |
+| `observation.state` | (6,) | float32 | Five arm joint positions plus gripper state |
+| `observation.images.up` | (3, 480, 640) | uint8 | Overhead third-person camera |
+| `observation.images.side` | (3, 480, 640) | uint8 | Side-view camera |
+| `action` | (6,) | float32 | Recorded teleoperation command |
 | `episode_index` | scalar | int64 | Episode this frame belongs to |
 | `frame_index` | scalar | int64 | Position within the episode |
 | `timestamp` | scalar | float32 | Seconds from episode start |
@@ -376,7 +376,7 @@ For the listings above, each call to `dataset[i]` returns one frame. That is eno
 
 LeRobot exposes this through a `delta_timestamps` argument on the dataset constructor. You pass a dictionary mapping feature names to lists of time offsets in seconds. For each key in that dictionary, the dataset stacks the requested frames into a single tensor along a new leading dimension.
 
-> **WHAT IS delta_timestamps?** Setting `delta_timestamps={"action": [0.0, 0.05, 0.10]}` returns the current action plus the next two future actions, stacked into shape `(3, 7)`. The numeric offsets are in seconds; at the SO-100 sim's 20 Hz control rate, 0.05 s is one frame. This enables action chunking, predicting a short sequence of future actions instead of one at a time, and it is the data-side foundation for the ACT and diffusion-policy heads in chapters 4 and 5.
+> **WHAT IS delta_timestamps?** Setting `delta_timestamps={"action": [0.0, 0.05, 0.10]}` returns the current action plus the next two future actions, stacked into shape `(3, 6)`. The numeric offsets are in seconds; at the SO-100 sim's 20 Hz control rate, 0.05 s is one frame. This enables action chunking, predicting a short sequence of future actions instead of one at a time, and it is the data-side foundation for the ACT and diffusion-policy heads in chapters 4 and 5.
 
 You do not need to use `delta_timestamps` for the work that follows. The DataLoader built in §2.5 yields single-frame batches, and chapter 3's first model trains on those. Action chunking in chapter 4 is where `delta_timestamps` first appears in a training loop. For now, knowing the mechanism exists is enough.
 
@@ -392,7 +392,7 @@ This section produces three visualizations using provided utilities from `ch02.v
 
 ### 2.4.1 Rendering expert episodes
 
-The first thing to look at is what one successful trajectory looks like. `render_keyframes` samples evenly spaced frames from one episode and tiles the top-down and wrist-camera views into a two-row figure. The top row shows the macroscopic motion of the arm; the bottom row shows the contact-level detail of the grasp. Listing 2.7 is a provided utility imported from `ch02.viz`; the call site is shown here, and the implementation lives in the chapter's source package for transparency.
+The first thing to look at is what one successful trajectory looks like. `render_keyframes` samples evenly spaced frames from one episode and tiles the overhead and side-view camera frames into a two-row figure. The top row shows the macroscopic motion of the arm from above; the bottom row shows the workspace from the side, where contact-level detail is easier to see. Listing 2.7 is a provided utility imported from `ch02.viz`; the call site is shown here, and the implementation lives in the chapter's source package for transparency.
 
 **Listing 2.7 Rendering expert keyframes from both camera views.**
 
@@ -405,9 +405,9 @@ fig.savefig("figures/figure_2_4_expert_keyframes.png", dpi=300)
 
 The underlying implementation iterates over the dataset, filters to episode 0, samples six evenly spaced indices, and renders both camera views into a 2×6 matplotlib grid. It returns the `Figure` object so the notebook can both render it inline and save it to disk.
 
-![Figure 2.4 Keyframes from one expert episode. The top-down view shows the macroscopic motion of the arm; the wrist view shows the contact-level detail of the grasp. A learned policy must capture both perspectives to handle objects whose position is only partially visible from above.](figures/figure_2_4_expert_keyframes.png)
+![Figure 2.4 Keyframes from one expert episode. The overhead view shows the macroscopic motion of the arm; the side view shows the workspace from a viewpoint where grasp height and target position are easier to read. A learned policy must capture both perspectives to handle objects whose position is only partially visible from above.](figures/figure_2_4_expert_keyframes.png)
 
-What you see in figure 2.4 is one successful pick-and-place. The arm approaches from above, descends to make contact, the gripper closes, and the cube travels with the gripper to the target zone. The wrist view is especially informative: in the third and fourth frames you can see the gripper closing around the cube from the camera's own perspective, the kind of close-range visual feedback a learned policy can use to time its grasp.
+What you see in figure 2.4 is one successful pick-and-place. The arm approaches from above, descends to make contact, the gripper closes, and the cube travels with the gripper to the target zone. The side view is especially informative: in the third and fourth frames you can see the relative heights of gripper and cube clearly, the kind of geometric cue a learned policy can use to time its grasp.
 
 ### 2.4.2 Action distributions
 
@@ -427,7 +427,7 @@ fig = plot_action_distributions(expert, scripted, random_)
 fig.savefig("figures/figure_2_5_action_distributions.png", dpi=300)
 ```
 
-![Figure 2.5 Action distributions for each of the seven action dimensions. Expert actions show structured, multimodal clusters that reflect different grasp strategies. The scripted policy produces a simpler, lower-variance pattern. Random actions are uniform across the range. The gap between the scripted and expert histograms is what a learned policy must close.](figures/figure_2_5_action_distributions.png)
+![Figure 2.5 Action distributions for each of the six action dimensions. Expert actions show structured, multimodal clusters that reflect different grasp strategies. The scripted policy produces a simpler, lower-variance pattern. Random actions are uniform across the range. The gap between the scripted and expert histograms is what a learned policy must close.](figures/figure_2_5_action_distributions.png)
 
 The expert histograms have *structure*. Several of them are *multimodal* in the statistical sense (multiple peaks): one cluster of joint values for cubes that spawn on the left side of the workspace, another for cubes on the right. The gripper histogram is sharply bimodal, with most mass at fully open (`-1`) and fully closed (`+1`) and almost nothing in between, which is what you would expect from a discrete decision masked by continuous-valued reporting. The scripted distributions are simpler: each joint mostly clusters around the values the heuristic uses for its phases, and the gripper is bimodal but with sharper edges. The random distributions are flat by construction.
 
@@ -575,8 +575,8 @@ loader, stats = make_pickplace_dataloader(batch_size=32)
 batch = next(iter(loader))
 print(f"state mean per dim: "
       f"{batch['observation.state'].mean(0)}")            #D
-print(f"image range: [{batch['observation.images.top'].min():.2f},"
-      f" {batch['observation.images.top'].max():.2f}]")
+print(f"image range: [{batch['observation.images.up'].min():.2f},"
+      f" {batch['observation.images.up'].max():.2f}]")
 ```
 
 #A `dataset_id` is parameterized so later chapters can swap in their own datasets without changing the function signature. The default points at the SO-100 pick-and-place dataset that chapter 3 expects.
@@ -587,7 +587,7 @@ print(f"image range: [{batch['observation.images.top'].min():.2f},"
 Running this smoke test prints:
 
 ```
-state mean per dim: tensor([-0.01,  0.02,  0.00, -0.03,  0.01,  0.00, -0.02])
+state mean per dim: tensor([-0.01,  0.02,  0.00, -0.03,  0.01,  0.00])
 image range: [0.00, 1.00]
 ```
 
@@ -595,7 +595,7 @@ Each state-mean component should sit within roughly ±0.1 of zero (within-batch 
 
 ![Figure 2.8 The complete data pipeline built across sections 2.1 to 2.5. Expert demonstrations are loaded from the Hub, normalization statistics are computed once, and a DataLoader applies the right normalization to each feature type at batch time. `make_pickplace_dataloader` encapsulates the entire flow as the API contract for chapter 3.](figures/figure_2_8_data_pipeline.png)
 
-> **THE CHAPTER 3 CONTRACT.** Chapter 3 imports `make_pickplace_dataloader`, `normalize`, and `denormalize` directly from `ch02`. The expected call site is `loader, stats = make_pickplace_dataloader(dataset_id, batch_size, shuffle)`. Each batch is a dictionary with keys `observation.state` (normalized), `observation.images.top` and `observation.images.wrist` (in `[0, 1]`), and `action` (normalized). After the model predicts a normalized action, `denormalize` converts it back to environment scale before `env.step()` runs. Treat the function signature as frozen; renaming or re-ordering arguments breaks every downstream chapter.
+> **THE CHAPTER 3 CONTRACT.** Chapter 3 imports `make_pickplace_dataloader`, `normalize`, and `denormalize` directly from `ch02`. The expected call site is `loader, stats = make_pickplace_dataloader(dataset_id, batch_size, shuffle)`. Each batch is a dictionary with keys `observation.state` (normalized), `observation.images.up` and `observation.images.side` (in `[0, 1]`), and `action` (normalized). After the model predicts a normalized action, `denormalize` converts it back to environment scale before `env.step()` runs. Treat the function signature as frozen; renaming or re-ordering arguments breaks every downstream chapter.
 
 > **EXERCISE 2.4: Min-max normalization on actions.** Replace `compute_stats` and `normalize` with min-max scaling (`(x - min) / (max - min)`) for `observation.state` and `action` only. Verify the round trip still works to floating-point precision. Then draw one batch and compare per-dimension batch means against z-score: which is closer to zero? Why does that matter for downstream learning? *Tip: think about how the loss gradient flows through a denormalized action prediction at the start of training, before the model has learned anything.*
 
